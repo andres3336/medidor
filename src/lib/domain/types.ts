@@ -6,7 +6,7 @@ export type Reading = {
   id: string
   /** ISO 8601 con offset -06:00 */
   at: string
-  /** m³ con 3 decimales */
+  /** Medición del medidor, m³ con 3 decimales */
   value: number
   note: string
   tags: string[]
@@ -14,13 +14,8 @@ export type Reading = {
   source?: ReadingSource
   createdAt: string
   updatedAt: string
-  /** Tombstone para sincronización */
+  /** Tombstone heredado; la UI nueva no borra, solo edita */
   deleted: boolean
-}
-
-export type ReadingMeta = {
-  flag: boolean
-  tags: string[]
 }
 
 export type TariffComponent = 'acueducto' | 'alcantarillado' | 'hidrantes' | 'tprh'
@@ -47,86 +42,29 @@ export type Tariffs = {
   effectiveFrom: string
 }
 
-export type CycleAdjustment = {
-  at: string
-  field: 'baseValue' | 'finalReading' | 'billedM3' | 'actualBill' | 'startAt'
-  oldValue: number | string
-  newValue: number | string
-  reason: string
-}
-
+/**
+ * Ciclo de facturación derivado, no persistido.
+ * La ventana es siempre 20 → 20 y la base es la última medición anterior al 20.
+ */
 export type Cycle = {
   /** "2026-10" */
   id: string
   label: string
   startAt: string
-  endAt: string | null
-  baseValue: number
-  closedAt: string | null
-  finalReading?: number
-  billedM3?: number
-  actualBill?: {
-    total: number
-    billedM3: number
-    paidAt: string
-    note?: string
-  }
-  adjustments: CycleAdjustment[]
-}
-
-export type Settings = {
-  cycleDay: number
-  timezone: 'America/Costa_Rica'
-  billingRounding: 'floor-reading'
-  currency: 'CRC'
-  decimals: { m3: number; liters: number; flow: number; money: number }
-  tariffs: Tariffs
-  projection: {
-    method: 'worst' | 'expected' | 'both'
-    safetyMarginPct: number
-    useMaxDaily: boolean
-  }
-  baselineWindowDays: number
-  outlier: {
-    /** multiplicador sobre la mediana */
-    multiplier: number
-    /** desviaciones MAD */
-    madFactor: number
-  }
-  flow: {
-    warningLph: number
-    dangerLph: number
-    outlierLph: number
-  }
-  note: {
-    unexplainedWarnLiters: number
-  }
-  gapWarnHours: number
-  acknowledgedGaps: string[]
-  theme: 'auto' | 'light' | 'dark'
-  gist: {
-    id: string | null
-    url: string | null
-    lastSyncAt: string | null
-  }
+  endAt: string
+  /** Última medición antes del inicio; si no existe, la primera del ciclo */
+  baseValue: number | null
+  baseReadingAt: string | null
+  finalReading: number | null
+  finalReadingAt: string | null
+  readingsCount: number
+  open: boolean
 }
 
 export type AppState = {
   schema: number
   updatedAt: string
-  settings: Settings
-  cycles: Cycle[]
   readings: Reading[]
-}
-
-/** Bloque de estado que viaja dentro de `medidor.md`. */
-export type GistState = {
-  schema: number
-  updatedAt: string
-  settings: Settings
-  cycles: Cycle[]
-  readingMeta: Record<string, ReadingMeta>
-  deletedReadings: string[]
 }
 
 export type DayPoint = {
@@ -134,7 +72,7 @@ export type DayPoint = {
   /** ISO de la última lectura del día */
   at: string
   reading: number
-  /** L/día normalizado por el intervalo desde el día anterior con datos */
+  /** L/día normalizado por el intervalo from el día anterior con datos */
   litersPerDay: number
   liters: number
   hours: number
@@ -162,38 +100,13 @@ export type Baseline = {
   windowDays: number
 }
 
-export type LeakSignal = {
-  at: string
-  note: string
-  explainedLiters: number
-  measuredLiters: number
-  unexplainedLiters: number
-  lph: number
-  kind: 'unexplained' | 'meter-spinning' | 'stored-water' | 'expected-zero'
-  severity: 'info' | 'warn' | 'danger'
-}
-
-export type FlowStats = {
-  basalLph: number
-  minPositiveLph: number
-  nocturnalLph: number | null
-  sampleSize: number
-  monthlyLossM3: number
-  monthlyCost: number
-  severity: 'ok' | 'warn' | 'danger'
-}
-
 export type Anomaly = {
   id: string
+  day: string
   at: string
   litersPerDay: number
   multiplier: number
-  normalDaysEquivalent: number
-  approximateCost: number
-  previousCost: number | null
-  note: string
   severity: 'warn' | 'danger'
-  action: string
 }
 
 export type BillBlockLine = {
@@ -220,18 +133,6 @@ export type Bill = {
   crossesIvaThreshold: boolean
 }
 
-export type ProjectionScenario = {
-  id: 'average' | 'recent' | 'worst'
-  label: string
-  rateLitersPerDay: number
-  projectedM3: number
-  billableM3: number
-  bill: Bill
-  crossesIvaThreshold: boolean
-  /** fecha estimada de cruce de los 30 m³, si aplica */
-  ivaCrossDate: string | null
-}
-
 export type Projection = {
   cycle: Cycle
   elapsedDays: number
@@ -239,8 +140,27 @@ export type Projection = {
   currentExactM3: number
   currentBillableM3: number
   currentBill: Bill
-  scenarios: ProjectionScenario[]
-  worst: ProjectionScenario
+  /** Promedio L/día de los últimos días del ciclo; es el what-if */
+  rateLitersPerDay: number
+  rateSampleDays: number
+  projectedM3: number
+  projectedBillableM3: number
+  projectedBill: Bill
   m3ToNextThreshold: { fifteen: number | null; thirty: number | null; sixty: number | null }
   overdueDays: number
+}
+
+export type CycleSeriesPoint = {
+  /** Días desde el inicio del ciclo */
+  index: number
+  at: string
+  m3: number
+}
+
+export type CycleSeries = {
+  cycle: Cycle
+  points: CycleSeriesPoint[]
+  projected: CycleSeriesPoint[]
+  totalM3: number
+  endIndex: number
 }

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Medidor AYA — radar de consumo de agua, offline-first, instalable como PWA",
+  "description": "Medidor AYA — medición, consumo por ciclo, proyección y CSV crudo; offline-first",
   "packageManager": "bun@1.4.4",
   "engines": {
     "node": ">=22.12"
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "chart.js": "^4.6.1",
-    "snarkdown": "^2.0.0"
+    "melt": "0.44.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

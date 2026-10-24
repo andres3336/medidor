@@ -24,6 +24,16 @@ export function parseDecimalInput(input: string): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+/** La medición solo acepta dígitos y un punto decimal. */
+export function sanitizeMeasurementInput(raw: string): string {
+  const digitsAndDots = raw.replace(/[^0-9.]/g, '')
+  const firstDot = digitsAndDots.indexOf('.')
+  if (firstDot < 0) return digitsAndDots
+  return (
+    digitsAndDots.slice(0, firstDot + 1) + digitsAndDots.slice(firstDot + 1).replaceAll('.', '')
+  )
+}
+
 export function formatNumber(value: number, decimals = 0): string {
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: decimals,
@@ -31,10 +41,10 @@ export function formatNumber(value: number, decimals = 0): string {
   }).format(value)
 }
 
-/** m³ con hasta 3 decimales, sin ceros de relleno. */
+/** m³ con los decimales pedidos (3 por defecto), para no perder precisión visual. */
 export function formatM3(value: number, decimals = 3): string {
   return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(value)
 }

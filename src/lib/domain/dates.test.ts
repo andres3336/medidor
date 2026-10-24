@@ -4,6 +4,8 @@ import {
   dayKey,
   dayKeysBetween,
   formatDateTime,
+  formatDayMonth,
+  formatTime12,
   hoursBetween,
   parseReadingDate,
   startOfDay,
@@ -61,5 +63,17 @@ describe('fechas de Costa Rica', () => {
     expect(dayKey(addDays(day, -1))).toBe('2026-10-19')
     expect(formatDateTime('2026-10-20T10:05:00-06:00')).toContain('10:05')
     expect(yesterdayKey(new Date('2026-10-24T12:00:00-06:00'))).toBe('2026-10-23')
+  })
+
+  it('formatea la hora con AM/PM para la tabla', () => {
+    expect(formatTime12('2026-10-23T08:15:00-06:00')).toBe('08:15 AM')
+    expect(formatTime12('2026-10-23T21:50:00-06:00')).toBe('09:50 PM')
+  })
+
+  it('usa DD-MMM mayúscula en toda la app', () => {
+    expect(formatDayMonth('2026-09-24T08:41:00-06:00')).toBe('24-SEP')
+    expect(formatDayMonth('2026-10-20T10:05:00-06:00')).toBe('20-OCT')
+    expect(formatDayMonth('2026-11-20T00:00:00-06:00')).toBe('20-NOV')
+    expect(formatDateTime('2026-10-23T09:20:00-06:00')).toBe('23-OCT 09:20')
   })
 })

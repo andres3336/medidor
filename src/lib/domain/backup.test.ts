@@ -1,27 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeAppState } from './backup'
 import { buildInitialState } from './seed'
+import { SCHEMA_VERSION } from './constants'
 
-describe('backup', () => {
+describe('backup y migración', () => {
   it('normaliza un estado semilla completo', () => {
     const state = buildInitialState()
     const normalized = normalizeAppState(JSON.parse(JSON.stringify(state)))
-    expect(normalized.readings).toHaveLength(60)
-    expect(normalized.cycles.filter((cycle) => cycle.endAt === null)).toHaveLength(1)
-    expect(normalized.settings.tariffs.blocks).toHaveLength(4)
+    expect(normalized.schema).toBe(SCHEMA_VERSION)
+    expect(normalized.readings).toHaveLength(66)
   })
 
-  it('rechaza un JSON sin ciclos', () => {
-    expect(() => normalizeAppState({ schema: 1, readings: [] })).toThrow(/ciclos/i)
-  })
-
-  it('rechaza un estado sin ciclo abierto', () => {
-    const state = buildInitialState()
-    state.cycles = state.cycles.map((cycle) => ({
-      ...cycle,
-      endAt: cycle.endAt ?? '2026-11-20T00:00:00-06:00',
-    }))
-    expect(() => normalizeAppState(state)).toThrow(/ciclo abierto/i)
+  it('rechaza un JSON sin mediciones', () => {
+    expect(() => normalizeAppState({ schema: 2 })).toThrow(/mediciones/i)
   })
 
   it('rechaza lecturas con fecha inválida', () => {
@@ -30,18 +21,26 @@ describe('backup', () => {
     expect(() => normalizeAppState(state)).toThrow(/fecha inválida/i)
   })
 
-  it('rellena settings faltantes con los defaults', () => {
+  it('migra un estado viejo con ciclos y settings: solo conserva mediciones', () => {
     const state = buildInitialState()
-    const minimal = {
+    const old = {
       schema: 1,
       updatedAt: state.updatedAt,
-      settings: {},
-      cycles: state.cycles,
+      settings: { cycleDay: 20, tariffs: { blocks: [] }, gist: { id: 'x' } },
+      cycles: [
+        { id: '2026-09', baseValue: 73 },
+        { id: '2026-10', baseValue: 100.283 },
+      ],
       readings: state.readings,
     }
-    const normalized = normalizeAppState(minimal)
-    expect(normalized.settings.cycleDay).toBe(20)
-    expect(normalized.settings.tariffs.blocks).toHaveLength(4)
-    expect(normalized.settings.flow.dangerLph).toBe(5)
+    const normalized = normalizeAppState(old)
+    expect(normalized.schema).toBe(SCHEMA_VERSION)
+    expect(normalized.readings).toHaveLength(66)
+    expect('cycles' in normalized).toBe(false)
+    expect('settings' in normalized).toBe(false)
+  })
+
+  it('rechaza versiones de schema desconocidas', () => {
+    expect(() => normalizeAppState({ schema: 99, readings: [] })).toThrow(/versión/i)
   })
 })

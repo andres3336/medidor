@@ -153,17 +153,34 @@ const dateFormatter = new Intl.DateTimeFormat('es-CR', {
   year: 'numeric',
 })
 
-const dayMonthFormatter = new Intl.DateTimeFormat('es-CR', {
-  timeZone: CR_TIMEZONE,
-  day: '2-digit',
-  month: 'short',
-})
+const MONTHS_ES = [
+  'ENE',
+  'FEB',
+  'MAR',
+  'ABR',
+  'MAY',
+  'JUN',
+  'JUL',
+  'AGO',
+  'SEP',
+  'OCT',
+  'NOV',
+  'DIC',
+] as const
 
 const timeFormatter = new Intl.DateTimeFormat('es-CR', {
   timeZone: CR_TIMEZONE,
   hour: '2-digit',
   minute: '2-digit',
   hour12: false,
+})
+
+/** Hora con AM/PM, como el CSV original. */
+const time12Formatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: CR_TIMEZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true,
 })
 
 const weekdayFormatter = new Intl.DateTimeFormat('es-CR', {
@@ -179,12 +196,19 @@ export function formatDate(input: string | Date): string {
   return dateFormatter.format(asDate(input)).replace(/\.$/, '')
 }
 
+/** Fecha corta consistente en toda la app: `23-OCT`. */
 export function formatDayMonth(input: string | Date): string {
-  return dayMonthFormatter.format(asDate(input)).replace(/\.$/, '')
+  const key = dayKey(input)
+  const [, month, day] = key.split('-').map(Number)
+  return `${String(day).padStart(2, '0')}-${MONTHS_ES[month - 1]}`
 }
 
 export function formatTime(input: string | Date): string {
   return timeFormatter.format(asDate(input))
+}
+
+export function formatTime12(input: string | Date): string {
+  return time12Formatter.format(asDate(input))
 }
 
 /** Hora local de Costa Rica (0–23). */
@@ -199,7 +223,7 @@ export function minuteOfHour(input: string | Date): number {
 }
 
 export function formatDateTime(input: string | Date): string {
-  return `${formatDate(input)} ${formatTime(input)}`
+  return `${formatDayMonth(input)} ${formatTime(input)}`
 }
 
 export function formatWeekday(input: string | Date): string {

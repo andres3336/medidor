@@ -1,49 +1,52 @@
 import { describe, expect, it } from 'vitest'
 import { buildInitialState } from './seed'
-import { deriveAnalytics, whatIf } from '../state/derive'
+import { deriveAnalytics } from '../state/derive'
 
 const state = buildInitialState()
 const now = new Date('2026-10-24T12:00:00-06:00')
 const analytics = deriveAnalytics(state, now)
 
 describe('derivados de la app', () => {
-  it('arma el ciclo actual, consumo y factura a hoy', () => {
+  it('arma el ciclo actual con base del 19 oct y consumo', () => {
     expect(analytics.cycle.id).toBe('2026-10')
+    expect(analytics.cycle.baseValue).toBe(100.156)
     expect(analytics.billableM3).toBe(3)
     expect(analytics.currentBill.total).toBeCloseTo(5819, 2)
     expect(analytics.currentBill.displayTotal).toBe(5819)
+    expect(analytics.projection!.currentExactM3).toBeCloseTo(3.754, 3)
   })
 
-  it('calcula la base normal con los 14 días recientes', () => {
-    expect(analytics.baseline.sampleSize).toBeGreaterThanOrEqual(5)
-    expect(analytics.baseline.sufficient).toBe(true)
-    expect(analytics.baseline.median).toBeGreaterThan(0)
-    expect(analytics.baseline.p25).toBeLessThanOrEqual(analytics.baseline.median)
-    expect(analytics.baseline.p75).toBeGreaterThanOrEqual(analytics.baseline.median)
+  it('calcula outliers solo en la ventana reciente de cada ciclo', () => {
+    expect(Array.isArray(analytics.anomalies)).toBe(true)
+    expect(analytics.anomalies.every((anomaly) => anomaly.multiplier > 0)).toBe(true)
+    expect(analytics.anomalies.some((anomaly) => anomaly.day.startsWith('2026-09-2'))).toBe(false)
   })
 
-  it('no inventa días faltantes cuando hay lectura diaria', () => {
+  it('calcula el promedio diario desde el inicio del ciclo', () => {
+    expect(analytics.averageM3PerDay).toBeCloseTo(0.834, 2)
+  })
+
+  it('calcula el promedio diario del ciclo anterior', () => {
+    expect(analytics.previousCycleAverageM3PerDay).toBeCloseTo(0.908, 3)
+  })
+
+  it('no inventa días faltantes cuando hay medición diaria', () => {
     expect(analytics.gaps.missingDays).toEqual([])
-    expect(analytics.gaps.unacknowledged).toEqual([])
+    expect(analytics.gaps.missingYesterday).toBe(false)
   })
 
-  it('mantiene la factura del ciclo cerrado en ₡37,559', () => {
-    const previous = analytics.history.find((row) => row.cycle.id === '2026-09')
-    expect(previous?.billableM3).toBe(27)
-    expect(previous?.bill?.total).toBeCloseTo(37559, 2)
-  })
-
-  it('genera conclusiones y un peor escenario propio del ciclo', () => {
-    expect(analytics.conclusions.length).toBeGreaterThan(0)
+  it('proyecta con el promedio de los últimos días del ciclo', () => {
     expect(analytics.projection).not.toBeNull()
-    const cycleMax = Math.max(...analytics.cycleDays.map((day) => day.litersPerDay))
-    expect(analytics.projection!.worst.rateLitersPerDay).toBeCloseTo(cycleMax, 1)
-    expect(analytics.projection!.worst.billableM3).toBeLessThan(60)
+    expect(analytics.projection!.rateSampleDays).toBeGreaterThan(0)
+    expect(analytics.projection!.rateLitersPerDay).toBeGreaterThan(0)
+    expect(analytics.projection!.projectedM3).toBeGreaterThan(analytics.projection!.currentExactM3)
+    expect(analytics.projection!.projectedBillableM3).toBeGreaterThanOrEqual(
+      analytics.projection!.currentBillableM3,
+    )
   })
 
-  it('el what-if sube la factura al aumentar el consumo', () => {
-    const base = whatIf(analytics, state, 0)
-    const more = whatIf(analytics, state, 500)
-    expect(more.bill.total).toBeGreaterThanOrEqual(base.bill.total)
+  it('marca outliers sin depender de las notas', () => {
+    expect(Array.isArray(analytics.anomalies)).toBe(true)
+    expect(analytics.anomalies.every((anomaly) => anomaly.multiplier > 0)).toBe(true)
   })
 })

@@ -20,7 +20,7 @@ export default defineConfig({
         name: 'Medidor AYA',
         short_name: 'Medidor',
         description:
-          'Radar diario de consumo de agua: anomalías, fugas y factura estimada. Funciona sin conexión.',
+          'Medidor de agua: medición, consumo del ciclo, proyección y datos crudos. Funciona sin conexión.',
         lang: 'es-CR',
         dir: 'ltr',
         start_url: './',
@@ -49,20 +49,6 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
-          },
-        ],
-        shortcuts: [
-          {
-            name: 'Agregar lectura',
-            short_name: 'Lectura',
-            url: './#/lecturas?nueva=1',
-            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
-          },
-          {
-            name: 'Hoy',
-            short_name: 'Hoy',
-            url: './#/hoy',
-            icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
           },
         ],
       },

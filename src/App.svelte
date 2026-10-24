@@ -1,40 +1,35 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { app, initStore, toggleTheme } from '$lib/state/store.svelte'
-  import { nav, go } from '$lib/router.svelte'
-  import { NAV_ROUTES } from '$lib/router'
+  import { app, initStore } from '$lib/state/store.svelte'
+  import { deriveAnalytics } from '$lib/state/derive'
   import { initPwa, pwa } from '$lib/pwa.svelte'
-  import { theme } from '$lib/theme.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import UpdatePrompt from '$lib/components/UpdatePrompt.svelte'
-  import Hoy from './routes/Hoy.svelte'
-  import Lecturas from './routes/Lecturas.svelte'
-  import Graficas from './routes/Graficas.svelte'
-  import Analisis from './routes/Analisis.svelte'
-  import Ajustes from './routes/Ajustes.svelte'
-  import Instrucciones from './routes/Instrucciones.svelte'
+  import SettingsDialog from '$lib/components/SettingsDialog.svelte'
+  import { initSheetSync, syncSheetCsv } from '$lib/state/sheetSync.svelte'
+  import Medidor from './routes/Medidor.svelte'
+
+  let settingsOpen = $state(false)
+  const analytics = $derived(deriveAnalytics(app.state))
 
   onMount(() => {
     initPwa()
-    void initStore()
+    void initStore().then(() => {
+      initSheetSync()
+      void syncSheetCsv()
+    })
   })
-
-  const routeLabel = $derived(
-    nav.route === 'instrucciones'
-      ? 'Instrucciones'
-      : NAV_ROUTES.find((r) => r.id === nav.route)?.label,
-  )
 </script>
 
 <a class="skip-link" href="#contenido">Saltar al contenido</a>
 
 <div class="app-shell">
   <header class="topbar">
-    <a class="brand" href="#/hoy" aria-label="Medidor AYA, ir a Hoy">
+    <a class="brand" href="./" aria-label="Medidor AYA, ir al inicio">
       <span class="brand-mark"><Icon name="droplet" size={20} filled /></span>
       <span>
         <h1>Medidor AYA</h1>
-        <p>{routeLabel ?? 'Radar de consumo'} · es-CR</p>
+        <p>{app.ready ? 'Ciclo actual' : 'cargando…'}</p>
       </span>
     </a>
     <div class="topbar-actions">
@@ -46,11 +41,12 @@
       <button
         class="btn btn-icon"
         type="button"
-        onclick={toggleTheme}
-        aria-label="Cambiar tema (actual: {theme.resolved})"
-        title="Cambiar tema"
+        onclick={() => (settingsOpen = true)}
+        aria-label="Configuración"
+        title="Configuración"
+        disabled={!app.ready}
       >
-        <Icon name={theme.resolved === 'dark' ? 'sun' : 'moon'} size={19} />
+        <Icon name="settings" size={19} />
       </button>
     </div>
   </header>
@@ -65,39 +61,13 @@
 
     {#if !app.ready}
       <div class="card flat" aria-busy="true">
-        <p class="small muted">Cargando tus lecturas…</p>
+        <p class="small muted">Cargando tus mediciones…</p>
       </div>
-    {:else if nav.route === 'hoy'}
-      <Hoy />
-    {:else if nav.route === 'lecturas'}
-      <Lecturas />
-    {:else if nav.route === 'graficas'}
-      <Graficas />
-    {:else if nav.route === 'analisis'}
-      <Analisis />
-    {:else if nav.route === 'ajustes'}
-      <Ajustes />
-    {:else if nav.route === 'instrucciones'}
-      <Instrucciones />
+    {:else}
+      <Medidor />
     {/if}
   </main>
 
-  <nav class="bottom-nav" aria-label="Navegación principal">
-    {#each NAV_ROUTES as item (item.id)}
-      <a
-        class="nav-item"
-        href="#/{item.id}"
-        aria-current={nav.route === item.id ? 'page' : undefined}
-        onclick={(event) => {
-          event.preventDefault()
-          go(item.id)
-        }}
-      >
-        <Icon name={item.icon} size={20} />
-        <span>{item.label}</span>
-      </a>
-    {/each}
-  </nav>
-
+  <SettingsDialog bind:open={settingsOpen} {analytics} />
   <UpdatePrompt />
 </div>

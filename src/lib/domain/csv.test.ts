@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseCsv, parseReadingsCsv, serializeReadingsCsv } from './csv'
 import { SEED_CSV, seedReadings } from './seed'
-import { findCycleFor } from './cycles'
-import { seedCycles } from './settings'
+import { buildCycles, currentCycle } from './cycles'
 
 describe('CSV', () => {
   it('parsea comillas, comas y saltos de línea', () => {
@@ -14,14 +13,18 @@ describe('CSV', () => {
     ])
   })
 
-  it('carga las 60 filas del data.csv sin errores', () => {
+  it('carga las 66 filas del data.csv sin errores', () => {
     const parsed = parseReadingsCsv(SEED_CSV)
     expect(parsed.errors).toEqual([])
-    expect(parsed.readings).toHaveLength(60)
-    expect(parsed.readings[0].at).toBe('2026-09-24T08:41:00-06:00')
-    expect(parsed.readings[0].value).toBe(79.656)
-    expect(parsed.readings[59].value).toBe(103.077)
-    expect(parsed.readings[59].note).toContain('6 litros')
+    expect(parsed.readings).toHaveLength(66)
+    expect(parsed.readings[0].at).toBe('2026-09-20T07:00:00-06:00')
+    expect(parsed.readings[0].value).toBe(73)
+    expect(parsed.readings[63].value).toBe(103.077)
+    expect(parsed.readings[63].note).toContain('6 litros')
+    expect(parsed.readings[64].value).toBe(103.643)
+    expect(parsed.readings[64].note).toBe('Medicion extra')
+    expect(parsed.readings[65].value).toBe(103.91)
+    expect(parsed.readings[65].note).toBe('Medicion diaria')
   })
 
   it('deduplica por fecha|medicion', () => {
@@ -52,8 +55,8 @@ describe('CSV', () => {
     expect(header).toBe('fecha,medicion,nota')
     expect(csv).not.toContain('consumo')
     expect(csv).not.toContain('L/h')
-    expect(csv.split('\n').filter(Boolean)).toHaveLength(61)
-    expect(parseReadingsCsv(csv).readings).toHaveLength(60)
+    expect(csv.split('\n').filter(Boolean)).toHaveLength(67)
+    expect(parseReadingsCsv(csv).readings).toHaveLength(66)
   })
 
   it('conserva comas y comillas en el round-trip', () => {
@@ -73,10 +76,9 @@ describe('CSV', () => {
     expect(parseReadingsCsv(csv).readings[0].note).toBe('dijo "epa", luego se fue\nsegunda línea')
   })
 
-  it('asigna la lectura de corte al ciclo nuevo', () => {
-    const cycles = seedCycles()
-    const boundary = findCycleFor(cycles, '2026-10-20T10:05:00-06:00')
-    expect(boundary?.id).toBe('2026-10')
-    expect(findCycleFor(cycles, '2026-10-20T09:00:00-06:00')?.id).toBe('2026-09')
+  it('el 20 de octubre pertenece al ciclo nuevo', () => {
+    const cycles = buildCycles(seedReadings(), new Date('2026-10-24T12:00:00-06:00'))
+    expect(currentCycle(cycles)?.id).toBe('2026-10')
+    expect(currentCycle(cycles)?.baseValue).toBe(100.156)
   })
 })

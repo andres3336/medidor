@@ -48,7 +48,6 @@ export function dedupeReadings(readings: Reading[]): Reading[] {
       seen.set(key, reading)
       continue
     }
-    // Gana el registro más reciente por updatedAt; flags y tags se fusionan.
     const winner =
       Date.parse(reading.updatedAt) >= Date.parse(existing.updatedAt) ? reading : existing
     seen.set(key, {
@@ -61,31 +60,54 @@ export function dedupeReadings(readings: Reading[]): Reading[] {
   return [...seen.values()]
 }
 
-export function readingMetaMap(
-  readings: Reading[],
-): Record<string, { flag: boolean; tags: string[] }> {
-  const meta: Record<string, { flag: boolean; tags: string[] }> = {}
-  for (const reading of readings) {
-    if (reading.flag || reading.tags.length > 0) {
-      meta[readingKey(reading.at, reading.value)] = { flag: reading.flag, tags: [...reading.tags] }
-    }
-  }
-  return meta
+export type SheetMergeResult = {
+  readings: Reading[]
+  added: number
+  updated: number
+  localOnly: number
 }
 
-export function applyReadingMeta(
-  readings: Reading[],
-  meta: Record<string, { flag: boolean; tags: string[] }>,
-): Reading[] {
-  return readings.map((reading) => {
-    const entry = meta[readingKey(reading.at, reading.value)]
-    return entry ? { ...reading, flag: entry.flag, tags: [...entry.tags] } : reading
-  })
+/**
+ * Merge de la hoja publicada con la copia local.
+ * La hoja manda en fecha/medición/nota; flags y tags locales se conservan.
+ * Las filas locales que no están en la hoja no se borran: se cuentan aparte.
+ */
+export function mergeSheetReadings(local: Reading[], remote: Reading[]): SheetMergeResult {
+  const localByKey = new Map(
+    local.map((reading) => [readingKey(reading.at, reading.value), reading]),
+  )
+  const remoteKeys = new Set(remote.map((reading) => readingKey(reading.at, reading.value)))
+  const merged = [...local]
+  let added = 0
+  let updated = 0
+
+  for (const remoteReading of remote) {
+    const key = readingKey(remoteReading.at, remoteReading.value)
+    const current = localByKey.get(key)
+    if (!current) {
+      merged.push(remoteReading)
+      localByKey.set(key, remoteReading)
+      added += 1
+      continue
+    }
+    if (current.deleted || current.note === remoteReading.note) continue
+    const index = merged.findIndex((reading) => reading.id === current.id)
+    if (index >= 0) {
+      merged[index] = { ...current, note: remoteReading.note, updatedAt: nowIso() }
+      updated += 1
+    }
+  }
+
+  const localOnly = local.filter(
+    (reading) => !reading.deleted && !remoteKeys.has(readingKey(reading.at, reading.value)),
+  ).length
+
+  return { readings: sortReadings(merged), added, updated, localOnly }
 }
 
 /** Intervalos consecutivos entre lecturas activas. */
 export function buildIntervals(readings: Reading[]): Interval[] {
-  const active = sortReadings(readings.filter((reading) => !reading.deleted))
+  const active = activeReadings(readings)
   const intervals: Interval[] = []
   for (let index = 1; index < active.length; index += 1) {
     const from = active[index - 1]
@@ -120,7 +142,7 @@ export function firstReading(readings: Reading[]): Reading | null {
  * horas reales del intervalo.
  */
 export function buildDailySeries(readings: Reading[]): DayPoint[] {
-  const active = sortReadings(readings.filter((reading) => !reading.deleted))
+  const active = activeReadings(readings)
   const byDay = new Map<string, Reading>()
   for (const reading of active) byDay.set(dayKey(reading.at), reading)
 

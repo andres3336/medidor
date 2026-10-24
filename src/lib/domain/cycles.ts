@@ -1,45 +1,116 @@
-import type { Cycle, CycleAdjustment, Reading } from './types'
-import {
-  dayKey,
-  formatDayMonth,
-  hoursBetween,
-  nowIso,
-  parseReadingDate,
-  startOfDay,
-  todayKey,
-} from './dates'
-import { billableConsumption } from './billing'
+import type { Cycle, Reading } from './types'
+import { dayKey, formatDayMonth, hoursBetween, startOfDay, toIso } from './dates'
 import { activeReadings } from './readings'
+import { CYCLE_DAY } from './constants'
 
-export function cycleIdFor(iso: string): string {
-  return dayKey(iso).slice(0, 7)
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
 }
 
-export function findCycleFor(cycles: Cycle[], at: string): Cycle | null {
-  const time = Date.parse(at)
+/** Inicio del ciclo que contiene la fecha: el día 20 a las 00:00 de Costa Rica. */
+export function periodStartFor(input: string | Date): string {
+  const key = dayKey(input)
+  const parts = key.split('-').map(Number)
+  let year = parts[0]
+  let month = parts[1]
+  const day = parts[2]
+  if (day < CYCLE_DAY) {
+    month -= 1
+    if (month === 0) {
+      month = 12
+      year -= 1
+    }
+  }
+  return toIso(startOfDay(`${year}-${pad(month)}-${pad(CYCLE_DAY)}`))
+}
+
+export function nextPeriodStart(startAt: string): string {
+  const [year, month] = dayKey(startAt).split('-').map(Number)
+  const nextMonth = month === 12 ? 1 : month + 1
+  const nextYear = month === 12 ? year + 1 : year
+  return toIso(startOfDay(`${nextYear}-${pad(nextMonth)}-${pad(CYCLE_DAY)}`))
+}
+
+export function periodIdFor(startAt: string): string {
+  return dayKey(startAt).slice(0, 7)
+}
+
+export function cycleLabelFor(startAt: string): string {
+  return `${formatDayMonth(startAt)} – ${formatDayMonth(nextPeriodStart(startAt))}`
+}
+
+function makeCycle(
+  startAt: string,
+  inCycle: Reading[],
+  baseReading: Reading | null,
+  now: Date,
+): Cycle {
+  const endAt = nextPeriodStart(startAt)
+  const last = inCycle[inCycle.length - 1] ?? null
+  return {
+    id: periodIdFor(startAt),
+    label: cycleLabelFor(startAt),
+    startAt,
+    endAt,
+    baseValue: baseReading?.value ?? null,
+    baseReadingAt: baseReading?.at ?? null,
+    finalReading: last?.value ?? null,
+    finalReadingAt: last?.at ?? null,
+    readingsCount: inCycle.length,
+    open: now.getTime() < Date.parse(endAt),
+  }
+}
+
+/**
+ * Deriva los ciclos 20 → 20 a partir de las mediciones.
+ *
+ * La base de un ciclo es la última medición ANTERIOR al día 20 a las 00:00.
+ * Si no hay ninguna (primer ciclo), se usa la primera medición del ciclo.
+ * No se persisten ciclos ni bases: editar una medición recalcula todo.
+ */
+export function buildCycles(readings: Reading[], now: Date = new Date()): Cycle[] {
+  const active = activeReadings(readings)
+  const currentStart = periodStartFor(now)
+
+  if (active.length === 0) {
+    return [makeCycle(currentStart, [], null, now)]
+  }
+
+  const firstStart = periodStartFor(active[0].at)
+  const cycles: Cycle[] = []
+  let cursor = Date.parse(firstStart) > Date.parse(currentStart) ? currentStart : firstStart
+  const lastStart = Date.parse(currentStart)
+
+  for (let guard = 0; guard < 240; guard += 1) {
+    const startMs = Date.parse(cursor)
+    const endAt = nextPeriodStart(cursor)
+    const endMs = Date.parse(endAt)
+    const inCycle = active.filter((reading) => {
+      const time = Date.parse(reading.at)
+      return time >= startMs && time < endMs
+    })
+    const before = active.filter((reading) => Date.parse(reading.at) < startMs)
+    const baseReading = before[before.length - 1] ?? inCycle[0] ?? null
+    cycles.push(makeCycle(cursor, inCycle, baseReading, now))
+    if (startMs >= lastStart) break
+    cursor = endAt
+  }
+
+  return cycles
+}
+
+export function currentCycle(cycles: Cycle[], now: Date = new Date()): Cycle | null {
+  const time = now.getTime()
   return (
-    cycles.find((cycle) => {
-      const start = Date.parse(cycle.startAt)
-      const end = cycle.endAt ? Date.parse(cycle.endAt) : Number.POSITIVE_INFINITY
-      return time >= start && time < end
-    }) ?? null
+    cycles.find((cycle) => Date.parse(cycle.startAt) <= time && time < Date.parse(cycle.endAt)) ??
+    cycles[cycles.length - 1] ??
+    null
   )
-}
-
-export function currentCycle(cycles: Cycle[]): Cycle | null {
-  const open = cycles.filter((cycle) => cycle.endAt === null)
-  if (open.length > 0) return open.sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt))[0]
-  const sorted = [...cycles].sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt))
-  return sorted[0] ?? null
-}
-
-export function sortedCycles(cycles: Cycle[]): Cycle[] {
-  return [...cycles].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))
 }
 
 export function cycleReadings(readings: Reading[], cycle: Cycle): Reading[] {
   const start = Date.parse(cycle.startAt)
-  const end = cycle.endAt ? Date.parse(cycle.endAt) : Number.POSITIVE_INFINITY
+  const end = Date.parse(cycle.endAt)
   return activeReadings(readings).filter((reading) => {
     const time = Date.parse(reading.at)
     return time >= start && time < end
@@ -51,216 +122,10 @@ export function lastReadingInCycle(readings: Reading[], cycle: Cycle): Reading |
   return inCycle.length === 0 ? null : inCycle[inCycle.length - 1]
 }
 
-/** Fecha de cierre esperada: el día de corte del mes siguiente, en hora CR. */
-export function expectedCycleEnd(cycle: Cycle, cycleDay: number): string {
-  const [year, month] = dayKey(cycle.startAt).split('-').map(Number)
-  const next = new Date(Date.UTC(year, month, 1))
-  const nextYear = next.getUTCFullYear()
-  const nextMonth = next.getUTCMonth() + 1
-  const day = Math.min(28, Math.max(1, Math.trunc(cycleDay)))
-  return `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00-06:00`
-}
-
-export function cycleLabel(startAt: string, endAt: string): string {
-  return `${formatDayMonth(startAt)} – ${formatDayMonth(endAt)}`
-}
-
-export function proposedCloseDate(cycle: Cycle, cycleDay: number): string {
-  return expectedCycleEnd(cycle, cycleDay)
-}
-
-/** ¿Ya toca cerrar? Desde el día de corte inclusive. */
-export function isCloseDue(cycle: Cycle, cycleDay: number, now: Date = new Date()): boolean {
-  if (cycle.endAt !== null) return false
-  const dueDay = dayKey(expectedCycleEnd(cycle, cycleDay))
-  return todayKey(now) >= dueDay
-}
-
-export function overdueDays(cycle: Cycle, cycleDay: number, now: Date = new Date()): number {
-  const due = startOfDay(dayKey(expectedCycleEnd(cycle, cycleDay)))
-  const diff = (now.getTime() - due.getTime()) / 86_400_000
-  return Math.max(0, Math.floor(diff))
-}
-
-function adjustment(
-  field: CycleAdjustment['field'],
-  oldValue: number | string,
-  newValue: number | string,
-  reason: string,
-  at: string,
-): CycleAdjustment {
-  return { at, field, oldValue, newValue, reason }
-}
-
-export type CloseCycleInput = {
-  cycleId: string
-  /** fecha/hora de corte efectiva (la que usa AYA o la que decide el usuario) */
-  cutAt: string
-  finalReading: number
-  /** m³ que facturó AYA; si falta, se calcula con floor(lectura) - floor(base) */
-  billedM3?: number
-  actualBill?: Cycle['actualBill']
-  note?: string
-  /** última lectura conocida, para auditar el ajuste de la lectura final */
-  lastReading?: number | null
-  /** timestamp de la última lectura, para validar la fecha de corte */
-  lastReadingAt?: string | null
-  /** cierre propuesto por la app, para auditar el cambio de fecha */
-  proposedCutAt?: string | null
-  /** día de corte configurado (default 20) */
-  cycleDay?: number
-  now?: string
-}
-
-export type CloseCycleResult = {
-  cycles: Cycle[]
-  closed: Cycle
-  next: Cycle
-}
-
-/**
- * Cierre manual y auditable. No auto-cierra ni inventa bases: cada campo que el
- * usuario cambia queda registrado en `adjustments`.
- */
-export function closeCycle(cycles: Cycle[], input: CloseCycleInput): CloseCycleResult {
-  const cycle = cycles.find((item) => item.id === input.cycleId)
-  if (!cycle) throw new Error(`Ciclo no encontrado: ${input.cycleId}`)
-  if (cycle.endAt !== null) throw new Error(`El ciclo ${input.cycleId} ya está cerrado`)
-
-  const now = input.now ?? nowIso()
-
-  if (!Number.isFinite(input.finalReading) || input.finalReading < cycle.baseValue) {
-    throw new Error('La lectura final no puede ser menor que la base del ciclo')
-  }
-  if (
-    !Number.isFinite(Date.parse(input.cutAt)) ||
-    Date.parse(input.cutAt) <= Date.parse(cycle.startAt)
-  ) {
-    throw new Error('La fecha de corte debe ser posterior al inicio del ciclo')
-  }
-  if (input.lastReadingAt && Date.parse(input.cutAt) < Date.parse(input.lastReadingAt)) {
-    throw new Error('La fecha de corte no puede ser anterior a la última lectura del ciclo')
-  }
-  if (input.billedM3 != null && (!Number.isInteger(input.billedM3) || input.billedM3 < 0)) {
-    throw new Error('El consumo facturado debe ser un entero de m³ mayor o igual a 0')
-  }
-
-  const computedBilled = billableConsumption(input.finalReading, cycle.baseValue)
-  const billedM3 = input.billedM3 ?? computedBilled
-  const adjustments: CycleAdjustment[] = []
-
-  if (input.lastReading != null && input.lastReading !== input.finalReading) {
-    adjustments.push(
-      adjustment(
-        'finalReading',
-        input.lastReading,
-        input.finalReading,
-        input.note?.trim() || 'Lectura final ajustada al cerrar el ciclo',
-        now,
-      ),
-    )
-  }
-  if (billedM3 !== computedBilled) {
-    adjustments.push(
-      adjustment(
-        'billedM3',
-        computedBilled,
-        billedM3,
-        input.note?.trim() || 'Consumo facturado ajustado al cierre',
-        now,
-      ),
-    )
-  }
-  if (input.proposedCutAt && Date.parse(input.proposedCutAt) !== Date.parse(input.cutAt)) {
-    adjustments.push(
-      adjustment(
-        'startAt',
-        input.proposedCutAt,
-        input.cutAt,
-        input.note?.trim() || 'Fecha de corte ajustada',
-        now,
-      ),
-    )
-  }
-  if (input.actualBill) {
-    adjustments.push(
-      adjustment(
-        'actualBill',
-        '',
-        input.actualBill.total,
-        input.note?.trim() || 'Monto real registrado',
-        now,
-      ),
-    )
-  }
-
-  const closed: Cycle = {
-    ...cycle,
-    endAt: input.cutAt,
-    closedAt: now,
-    finalReading: input.finalReading,
-    billedM3,
-    actualBill: input.actualBill,
-    adjustments: [...cycle.adjustments, ...adjustments],
-  }
-
-  const baseId = cycleIdFor(input.cutAt)
-  const nextStart = input.cutAt
-  const expectedEnd = expectedCycleEnd({ ...cycle, startAt: nextStart }, input.cycleDay ?? 20)
-  const usedIds = new Set(cycles.map((item) => item.id))
-  let nextId = baseId
-  if (usedIds.has(nextId)) nextId = `${baseId}-${dayKey(nextStart)}`
-  let suffix = 2
-  while (usedIds.has(nextId)) {
-    nextId = `${baseId}-${dayKey(nextStart)}-${suffix}`
-    suffix += 1
-  }
-  const next: Cycle = {
-    id: nextId,
-    label: cycleLabel(nextStart, expectedEnd),
-    startAt: nextStart,
-    endAt: null,
-    baseValue: input.finalReading,
-    closedAt: null,
-    adjustments: [],
-  }
-
-  return {
-    cycles: [...cycles.filter((item) => item.id !== cycle.id), closed, next],
-    closed,
-    next,
-  }
-}
-
-/** Ajuste manual de la base o de la fecha de inicio del ciclo actual. */
-export function adjustCycle(
-  cycle: Cycle,
-  changes: { baseValue?: number; startAt?: string; reason: string },
-  now: string = nowIso(),
-): Cycle {
-  const adjustments = [...cycle.adjustments]
-  if (changes.baseValue != null && changes.baseValue !== cycle.baseValue) {
-    adjustments.push(
-      adjustment('baseValue', cycle.baseValue, changes.baseValue, changes.reason, now),
-    )
-  }
-  if (changes.startAt && changes.startAt !== cycle.startAt) {
-    adjustments.push(adjustment('startAt', cycle.startAt, changes.startAt, changes.reason, now))
-  }
-  return {
-    ...cycle,
-    baseValue: changes.baseValue ?? cycle.baseValue,
-    startAt: changes.startAt ?? cycle.startAt,
-    adjustments,
-  }
-}
-
-/** Días calendario del ciclo transcurridos y restantes. */
-export function cycleDayProgress(cycle: Cycle, cycleDay: number, now: Date = new Date()) {
-  const start = parseReadingDate(cycle.startAt)
+/** Días transcurridos y restantes dentro de la ventana 20 → 20. */
+export function cycleDayProgress(cycle: Cycle, now: Date = new Date()) {
+  const start = cycle.startAt
   const end = cycle.endAt
-    ? parseReadingDate(cycle.endAt)
-    : parseReadingDate(expectedCycleEnd(cycle, cycleDay))
   const elapsed = Math.max(0, hoursBetween(start, now) / 24)
   const total = Math.max(1, hoursBetween(start, end) / 24)
   return {
