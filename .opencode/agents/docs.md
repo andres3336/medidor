@@ -37,10 +37,10 @@ Sos el agente de documentación de Medidor AYA. Escribís en español de Costa R
 ## Dónde va cada cosa
 
 - `README.md`: qué es, cómo correr, cómo desplegar, estructura.
-- `instructions.md`: manual de usuario dentro de la app (#/instrucciones). Debe reflejar el comportamiento real.
+- `instructions.md`: manual de usuario del repo; **no** se renderiza dentro de la app. Debe reflejar el comportamiento real.
 - `AGENTS.md`: convenciones para agentes, no para usuarios.
-- `docs/`: decisiones y notas técnicas largas. No dupliques el planning.
-- `planning.md`: es la fuente de verdad del alcance. No lo reescribas; si hay una errata, señalala.
+- `docs/`: decisiones y notas técnicas largas, incluidas las erratas del plan. No dupliques el planning.
+- `planning.md`: plan aprobado original. No lo reescribas; si el rediseño lo dejó obsoleto, agregá la errata en `docs/planning-errata.md` y actualizá README, instructions, AGENTS y el skill.
 
 ## Voz
 
@@ -51,7 +51,7 @@ Sos el agente de documentación de Medidor AYA. Escribís en español de Costa R
 
 ## Antes de escribir
 
-1. Leé `planning.md` (secciones 1, 3 y 7) y el código del dominio si el tema es cálculo.
+1. Leé `planning.md` (secciones 1, 3 y 7), `docs/planning-errata.md` y el código del dominio si el tema es cálculo.
 2. Verificá los números con `src/lib/domain/*.test.ts`; no inventes montos.
 3. Si el comportamiento cambió, actualizá `instructions.md` y `README.md` en el mismo cambio.
 4. No documentes features que todavía no existen: marcalas como “fase 4” o no las menciones.

@@ -1,6 +1,6 @@
 ---
 name: Dominio Medidor AYA
-description: Reglas normativas de facturación, ciclos, lecturas, fugas y CSV del Medidor AYA. Cargar antes de tocar src/lib/domain, data.csv o cualquier cálculo de dinero.
+description: Reglas normativas de facturación, ciclos derivados, lecturas, proyección, outliers, promedios, CSV y sync con Google Sheets del Medidor AYA. Cargar antes de tocar src/lib/domain, src/lib/state/sheetSync.svelte.ts, data.csv o cualquier cálculo de dinero.
 ---
 
 # Dominio Medidor AYA
@@ -9,7 +9,11 @@ Este skill es la verdad operativa del proyecto. Si el código y este documento d
 
 ## Regla de oro
 
-`data.csv` guarda **solo** `fecha,medicion,nota`. Consumo, Δ, litros, L/h, costos, proyecciones y outliers son derivados y se recalculan en memoria. Nunca los persistas ni los agregues como columnas.
+La hoja publicada de Google Sheets y `src/data.csv` guardan **solo** `fecha,medicion,nota`. Consumo, Δ, litros, L/h, costos, proyecciones y outliers son derivados y se recalculan en memoria. Nunca los persistas ni los agregues como columnas.
+
+- **Fuente viva:** CSV publicado de Google Sheets, solo lectura.
+- **Semilla y respaldo sin red:** `src/data.csv`, importado con `?raw`.
+- La app **no escribe** la hoja. El alta y la edición se hacen en Google Sheets; la PWA solo lee y mergea.
 
 ## Unidades y formatos
 
@@ -18,16 +22,24 @@ Este skill es la verdad operativa del proyecto. Si el código y este documento d
 - L/h: 1 decimal.
 - Dinero: colones, sin centavos al mostrar. `Math.ceil` al colón.
 - Números: punto decimal y coma de miles (`1,234.567`), como el CSV original.
-- Fechas: ISO 8601 con offset `-06:00`; Costa Rica no tiene DST.
+- Fechas: ISO 8601 con offset `-06:00`; Costa Rica no tiene DST. El parser acepta también `MM/DD/YYYY hh:mm AM/PM`.
+- La UI muestra las fechas en `DD-MMM` mayúscula (`23-OCT`, `20-NOV`). La tabla agrega hora AM/PM.
+- El CSV exportado usa ISO con `-06:00`; el CSV semilla usa el formato viejo.
 
 ## Lecturas y consumo
 
 ```
-exacto     = lectura_actual - base
-facturable = floor(lectura_actual) - floor(base)
+exacto     = medicion_actual - base
+facturable = floor(medicion_actual) - floor(base)
 ```
 
-Si el facturable es negativo, se muestra 0 y se marca dato dudoso. Ejemplo canónico: base `100.283`, actual `103.077` → exacto `2.794`, facturable `3`.
+Si el facturable es negativo, se muestra 0 y se marca dato dudoso.
+
+Ejemplo canónico del ciclo actual: base `100.156`, medición `103.910` → exacto `3.754`, facturable `3`.
+
+El ciclo 2026-09 va de base `73.000` a `100.156` → exacto `27.156`, facturable `27`.
+
+`100.283` **no** es la base del ciclo actual: es una medición del 20 de octubre que pertenece al ciclo `2026-10`.
 
 ## Facturación (ARESEP 2026-10-23)
 
@@ -54,6 +66,8 @@ total = acueducto + alcantarillado + hidrantes + tprh + iva
 
 **El IVA se aplica a todo el acueducto** (bloques + cargo fijo), no solo al bloque 3. El salto de 30 a 31 m³ es de ₡5,214.70.
 
+Las tarifas son de solo lectura en la UI. `calcBill` acepta opciones para tests, pero la app usa siempre la tabla ARESEP completa.
+
 Vectores de validación (total exacto, sin redondear):
 
 | m³ | total | IVA |
@@ -70,52 +84,107 @@ Vectores de validación (total exacto, sin redondear):
 
 Al mostrar, `displayTotal` redondea hacia arriba (31 → ₡48,090). Los tests usan el total exacto.
 
-## Ciclos
+## Ciclos derivados 20 → 20
 
-- Corte el día 20, configurable (1–28).
-- Ciclo actual: `endAt === null`.
+- Corte el día 20 a las 00:00, fijo (`CYCLE_DAY = 20`). No se configura.
 - El instante exacto del corte pertenece al ciclo **nuevo** (`start <= at < end`).
-- Cierre manual y auditable: lectura final, consumo facturado, fecha/hora de corte, monto real y nota. Cada campo ajustado genera un `CycleAdjustment`.
-- La lectura final ajustada pasa a ser `baseValue` del ciclo nuevo. No auto-cerrar, no inventar base.
-- Semilla: ciclo 2026-09 base 73.000, cierre 2026-10-20 10:05 con lectura 100.283 (27 m³); ciclo 2026-10 actual base 100.283.
+- Id del ciclo: `YYYYMM` del mes de inicio. Etiqueta: `20-OCT – 20-NOV`.
+- La **base** es la última medición **anterior** al inicio del ciclo. Si no existe (primer ciclo), se usa la primera medición del ciclo. Si no hay mediciones, `baseValue = null`.
+- Los ciclos **no se persisten**. Se derivan de las mediciones; editar una medición del 19 cambia la base del ciclo siguiente.
+- No hay cierre manual, ni lectura final ajustada, ni `billedM3`, ni `actualBill`, ni `CycleAdjustment`, ni auditoría.
+- Semilla: ciclo 2026-09 base 73.000, 58 mediciones, última 100.156; ciclo 2026-10 base 100.156 (19 oct 21:50), 8 mediciones, última 103.910.
+- Promedio diario del ciclo anterior = consumo exacto del ciclo anterior dividido entre los días desde su corte hasta su última medición. Para 2026-09 da ≈ `0.91 m³/día`.
+- Días faltantes: aviso suave si falta la medición de ayer o si la última tiene más de 36 h. No bloquea.
 
-## Flujo y fugas
+## Proyección
+
+Una sola proyección, sin escenarios ni slider:
 
 ```
-Δm³   = lectura_2 - lectura_1
-horas = (fecha_2 - fecha_1) / 3600
-L/h   = Δm³ × 1000 / horas
+tasa = promedio de L/día de los últimos 7 días con datos del ciclo
+proyección_m3 = consumo_exacto + tasa × días_restantes / 1000
+días_restantes = (fin_del_ciclo - última_medición) / 24
 ```
 
-- Basal = percentil 10 de L/h positivos; con menos de 10 muestras, mínimo positivo.
-- Nocturno = intervalos entre 22:00 y 06:00.
-- Pérdida mensual = basal × 24 × 30 / 1000 m³.
-- Costo = factura(consumo + pérdida) - factura(consumo).
-- Amarillo ≥ 1 L/h, rojo ≥ 5 L/h (configurable). Nunca decir “fuga confirmada”.
+- Si no hay días recientes, se usa el promedio del ciclo como respaldo.
+- El facturable proyectado se calcula con `billableConsumption(medición_proyectada, base)`.
+- La factura proyectada usa el mismo cálculo de bloques e IVA.
+- Es el único “what-if”; no hay peor escenario, margen de seguridad ni control editable.
 
-## Notas vs medidor
+## Barra de bloques y promedio
 
-- Cantidades: `6 litros`, `20L+5L+10L`; decimales sueltos con 3+ decimales (`0.004`) se leen como m³.
-- `no_explicado = litros_medidor - litros_nota`; con más de 2 L se genera señal.
-- Si la nota dice que el medidor sigue girando, marcar flujo continuo aunque no haya cantidad.
-- Casos canónicos: 23 L medidos − 6 L de nota = 17 L ≈ 15.7 L/h; 799 L − 35 L = 764 L; 4 L/h con casa sin uso.
+- La barra va de 0 a 60 m³, con ticks cada 5 m³.
+- `Bloque1` verde: 0–15. `Bloque2` amarillo: 15–30. `Bloque3` rojo: 30–60. La leyenda va centrada y no muestra `60+`.
+- El relleno toma el color del bloque actual; hay marcador actual y marcador punteado de proyección.
+- Si el consumo supera 60, la barra queda al tope y el texto sigue mostrando el valor real.
+- La tarjeta muestra tres métricas: consumo exacto con proyección al cierre, lectura anterior con el promedio diario del ciclo anterior y factura aproximada (`≈ ₡…`, estimación, no el recibo).
+- Promedio diario del ciclo = `consumo_exacto / días_desde_el_corte_hasta_hoy` en m³/día. Se muestra en la cabecera de la tarjeta; no se usa en las gráficas.
+- No se usa L/h ni flujo basal en las gráficas.
+
+## Gráficas
+
+- Dos gráficas, siempre actual vs último, sin filtro de periodo.
+- **Curva de consumo:** m³/día por día del ciclo. Línea anterior gris clara y fina, actual azul y gruesa; puntos pequeños del color de cada línea, sin semáforo. Chip con el promedio actual. Sin promedio dibujado ni proyección.
+- **Periodo anterior vs actual:** factura estimada acumulada en ₡ por día del ciclo (`día 1..N`). Línea anterior gris clara y fina, actual azul y gruesa con área rellena en azul suave, proyección actual punteada. Sin puntos.
+- `buildBillSeries` calcula la factura de cada punto con base, `floor`, bloques ARESEP, cargo fijo e IVA. `buildBillComparison` devuelve anterior/actual y la proyección.
+- Periodos de 28/30/31 días se alinean por día de ciclo hasta el máximo; es una comparación estimada.
+
+## Notas
+
+- La nota es texto libre. **No se parsean cantidades ni frases de fuga.**
+- No existe `no_explicado`, ni señales por nota, ni acciones sugeridas automáticas.
+- Los casos viejos de “23 L − 6 L = 17 L” quedaron fuera del alcance y no deben volver sin un cambio de plan.
 
 ## Serie diaria y outliers
 
-- L/día por intervalo normalizado: última lectura del día contra la última del día anterior **con datos**, dividido por las horas reales. Los huecos no generan picos.
-- Base normal: mediana de los últimos 14 días (configurable), banda p25–p75, descartando outliers.
-- Outlier: `valor > max(mediana × 2, mediana + 3×MAD)`. Con menos de 5 días, baseline insuficiente y se usa el promedio del ciclo como referencia.
-- Equivalencia: “N días normales en uno” = valor / mediana.
+- L/día por intervalo normalizado: última medición del día contra la última del día anterior **con datos**, dividido por las horas reales. Los huecos no generan picos.
+- Los outliers se calculan **por ciclo**, solo sobre la ventana de los **últimos 14 días con datos de ese ciclo**.
+- Base normal: mediana de esos 14 días, banda p25–p75, descartando valores por encima del límite.
+- Outlier: `valor > max(mediana × 2, mediana + 3×MAD)`.
+- Con menos de 5 días limpios, baseline insuficiente y se usa el promedio del ciclo como referencia.
+- El resultado solo alimenta el icono de advertencia de la tabla (y el color rojo en la gráfica). No genera tarjetas ni conclusiones.
+- Un outlier fuera de la ventana de 14 días del ciclo no se marca.
+
+## Tabla de mediciones
+
+- Datos crudos, más reciente arriba, una fila por medición: fecha con AM/PM, medición m³, Δ m³, Δ L, horas enteras, L/h sin unidad en la celda y nota en una sola línea.
+- En móvil se ocultan Δ m³, horas y nota.
+- Swipe izquierda o `F`: favorito (`flag`, fila verde). Es local y no viaja a la hoja.
+- La tabla es **solo lectura**: no hay tap, Enter ni swipe derecho para editar. El alta y la corrección se hacen en Google Sheets.
+- No hay borrar, iconos de acción, tags editables ni filtros de flags.
+- Buscar filtra por nota o medición.
+- Solo los outliers muestran el icono de advertencia al inicio de la fila.
+
+## Estado, hoja y CSV
+
+- `AppState` schema 2 = `{ schema, updatedAt, readings }`. Solo se persisten mediciones.
+- `tags` y `flag` existen en `Reading`; la UI solo marca el favorito. `deleted` es un tombstone heredado; la UI no borra.
+- **Sync con Google Sheets:** `src/lib/state/sheetSync.svelte.ts` hace `fetch` del CSV publicado (`cache: 'no-store'`, timeout de 8 s) al arrancar, al volver a la pestaña (`visibilitychange`) y al recuperar red (`online`).
+- **Merge** (`mergeSheetReadings`): clave `fecha|medicion`. La hoja manda en valor y nota; `flag` y `tags` locales se conservan. Las filas locales que no están en la hoja no se borran: se cuentan en `localOnly` y se avisan en Configuración.
+- `src/data.csv` es **semilla y respaldo sin red**: **66 filas**, 2026-09-20 07:00 → 2026-10-24 09:07, solo `fecha,medicion,nota`.
+- Datos completados de setiembre: 20 sep `73.000`, 21 sep `74.635`, 22 sep `76.270`, 23 sep `77.905`; el 24 sep real es `79.656`. El tramo 73 → 79.656 se repartió para no crear un pico falso.
+- Deduplicación por `fecha|medicion`.
+- El parser tolera columnas extra de CSV viejos; la exportación es atómica.
+- No hay importación desde la UI ni escritura en la hoja.
+- No hay gist, token, backup JSON ni reset.
+
+## Seguridad y privacidad
+
+- No hay token ni cuenta. La app lee un CSV público con CORS: leer no necesita credenciales y escribir no está soportado.
+- Nunca guardes un PAT en el repo, el estado, IndexedDB, `localStorage`, el CSV ni los logs.
+- **La hoja publicada es pública:** las notas con nombres o direcciones quedan visibles para quien tenga el link.
+- Para escribir en la hoja en el futuro haría falta OAuth de Google o un Apps Script/backend, no un PAT en la PWA.
 
 ## Lenguaje
 
 - “aproximado”, “≈”, “normal”, “raro”, “posible”.
 - Nada de centavos ni falsa precisión.
-- La factura es referencia secundaria; el número principal es la anomalía de ayer.
+- La factura es una estimación; el recibo real manda.
 
 ## Archivos
 
-- Implementación: `src/lib/domain/*.ts` (types, dates, format, tariffs, billing, cycles, readings, flow, stats, anomalies, notes, projections, gaps, csv, summary, settings, seed).
-- Tests: `src/lib/domain/*.test.ts`.
-- Semilla: `data.csv` en la raíz, importado con `?raw`.
-- Documentación de usuario: `instructions.md`.
+- Implementación: `src/lib/domain/*.ts` (anomalies, backup, billing, constants, csv, cycles, dates, format, gaps, periods, projections, readings, seed, stats, tariffs, types) y `src/lib/state/sheetSync.svelte.ts`.
+- Tests: `src/lib/domain/*.test.ts` (78 casos).
+- Semilla: `src/data.csv`, importado con `?raw`.
+- Documentación de usuario: `instructions.md` (manual del repo; no se renderiza dentro de la app).
+- UI: una sola página en `src/routes/Medidor.svelte` + `SettingsDialog`.

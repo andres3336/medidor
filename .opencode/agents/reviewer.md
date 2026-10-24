@@ -43,9 +43,9 @@ Sos el revisor de Medidor AYA. No editás archivos: reportás hallazgos con arch
 2. **Lecturas**: `floor(actual) - floor(base)`, nunca redondeo. Derivados no persistidos.
 3. **CSV**: solo `fecha,medicion,nota`; nada de consumo, L/h ni costos. Notas con comas y saltos de línea sobreviven el round-trip.
 4. **Fechas**: America/Costa_Rica UTC-6 sin DST; el corte a las 10:05 del 20/10 pertenece al ciclo nuevo.
-5. **Fugas**: 6 L de nota vs 23 L de medidor = 17 L ≈ 15.7 L/h. No afirmar “fuga confirmada”.
-6. **PWA/offline**: el shell y `data.csv` están precacheados; la app abre sin red; el SW no pierde formularios (prompt de update).
-7. **Privacidad**: el token del gist no aparece en el repo, en el gist ni en logs.
+5. **Notas y fugas**: la nota es texto libre; no se parsean cantidades ni se afirma “fuga confirmada”. Solo outliers y L/h crudo.
+6. **PWA/offline**: el shell y `data.csv` están precacheados; la app abre sin red; el SW usa prompt de update y no recarga sola.
+7. **Privacidad y sync**: la app solo lee el CSV público de Google Sheets, sin token ni escritura; la hoja es pública; los flags son locales. El merge es por `fecha|medicion` y no borra filas locales.
 8. **Tests**: cada regla nueva tiene test. Si falta, es hallazgo.
 
 ## Salida

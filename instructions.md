@@ -1,158 +1,218 @@
 # Instrucciones
 
-## Qué es y qué no es
+## Qué es
 
-Medidor AYA es una app personal para **detectar anomalías de consumo de agua y actuar rápido**. No es la factura oficial: la fuente de verdad es AYA. La factura que muestra la app es una **estimación** para presupuestar, con redondeo hacia arriba.
+Medidor AYA es una app personal para leer lo que marca el medidor de agua y el consumo del ciclo de facturación. Las mediciones se editan en una **hoja de Google Sheets publicada**; la app solo lee esa hoja. La app **estima** la factura; el recibo real de AYA manda.
 
-Lo importante cada día es responder:
+Tiene una sola pantalla. De arriba hacia abajo encontrás:
 
-- ¿El consumo de ayer fue normal?
-- ¿Cuánto se desvía de la mediana?
-- ¿A cuántos días normales equivale?
-- ¿Hay flujo continuo (posible fuga)?
-- ¿Qué llave o casa puede explicarlo?
-- ¿Qué hago ahora?
+1. **Ciclo actual**
+2. **Gráficas**
+3. **Mediciones** (tabla cruda)
 
-## Cómo agregar una lectura
+El engranaje de la esquina superior derecha abre **Configuración**. No hay otras pantallas ni menú inferior.
 
-1. Tocá **Agregar lectura** en Hoy o en Lecturas.
-2. Escribí la medición en m³ tal como está en el medidor. Acepta `103.077` o `103,077`.
-3. Ajustá la fecha y hora si la lectura es de otro momento.
-4. Agregá una nota si pasó algo: “se lavó en casa2”, “llave-ducha abierta”, “no hubo agua”.
-5. Marcá etiquetas y, si hay que revisar, la estrella de **flag**.
+## Medición y consumo
 
-Las lecturas se guardan en el teléfono (IndexedDB). La app funciona sin conexión.
+La **medición** es el número que marca el medidor. El **consumo** es la diferencia entre dos mediciones, o entre la medición actual y la base del ciclo.
 
-## Ciclo, corte y base
+Ejemplo con los datos semilla:
 
-El ciclo va del día 20 al 20 de cada mes, configurable en Ajustes.
+- Base del ciclo: `100.156 m³`.
+- Lectura anterior: `103.910 m³`.
+- Consumo exacto: `3.754 m³`.
+- Consumo facturable: `3 m³`, porque AYA trunca cada medición a m³ enteros antes de restar.
 
-- **Base:** lectura del corte anterior. El consumo se mide desde ahí.
-- **Lectura final:** la del cierre. Pasa a ser la base del ciclo nuevo.
-- **Corte:** día y hora en que AYA (o vos) cierra el ciclo.
+## Cómo agregar o editar una medición
 
-El cierre es **manual**: la app no inventa una base ni cierra sola. Desde el día de corte aparece un aviso persistente. Al cerrar podés ajustar la lectura final, el consumo facturado, la fecha/hora de corte y el monto real. Cada cambio queda auditado.
+La app **no agrega ni edita** mediciones. El alta y la corrección se hacen en la hoja de Google Sheets; después sincronizás.
+
+1. Abrí la hoja publicada desde el teléfono o la computadora.
+2. Agregá una fila al final con tres columnas: `fecha`, `medicion` y `nota`.
+   - `fecha`: `24/10/2026 09:07` o el formato que ya usa la hoja. La app también entiende ISO 8601.
+   - `medicion`: el número del medidor, por ejemplo `103.910`.
+   - `nota`: texto libre, por ejemplo “medicion diaria”.
+3. Guardá la hoja.
+4. En la app, abrí **Configuración** y tocá **Sincronizar hoja**. También se sincroniza sola al abrir, al volver a la pestaña y al recuperar red.
+
+La app mezcla por `fecha|medicion`:
+
+- Si la fila es nueva, aparece en la tabla.
+- Si la fecha y la medición ya existen, la nota y el valor de la hoja mandan.
+- Los **favoritos** son locales y se conservan.
+- Si una fila local no está en la hoja, **no se borra**: la app avisa “N filas locales no están en la hoja”. Copiala a la hoja para verla en todos los dispositivos.
+- No hay botón de borrar. Las mediciones se corrigen en la hoja.
+
+No hay token ni cuenta de Google: la app lee el CSV publicado, que es de solo lectura.
+
+> La hoja publicada es pública. Quien tenga el link puede leer las notas, incluidos nombres o direcciones. No escribas ahí nada que no quieras compartir.
+
+## El ciclo 20 → 20
+
+El ciclo va del día 20 a las 00:00 al día 20 del mes siguiente. El día de corte es fijo; no se configura.
+
+**La base se calcula sola.** Es la última medición anterior al día 20 a las 00:00. Si no existe —por ejemplo, en el primer ciclo— se usa la primera medición del ciclo. Si corregís esa medición en la hoja, la base cambia y todo se recalcula al sincronizar. No hay cierre manual ni base editable.
+
+Ciclo actual de los datos semilla:
+
+- Ciclo `2026-10`, del 20 de octubre al 20 de noviembre.
+- Base: `100.156 m³`, del 19-OCT a las 21:50.
+- Lectura anterior: `103.910 m³`, del 24-OCT a las 09:07.
+
+Las fechas se muestran siempre en **DD-MMM** mayúscula: `20-OCT`, `24-SEP`, `20-NOV`. La tabla agrega la hora con AM/PM.
+
+La tarjeta del ciclo muestra:
+
+- **Ciclo actual** en la cabecera. No muestra el `YYYY-MM` ni el rango de fechas.
+- El promedio diario desde el inicio del ciclo hasta hoy, por ejemplo `0.66 m³/día`, en la esquina.
+- **CONSUMO** en m³ exactos y la proyección `≈ 22 m³ al cierre`.
+- **LECTURA ANT** con la última medición y el promedio diario del ciclo anterior, por ejemplo `≈ 0.91 m³/día`. Si no hay medición de hoy, aparece **“FALTA la de hoy”**.
+- **FACTURA APROX.** con `≈ ₡5,819`; es una estimación para presupuestar, no el recibo de AYA.
+- Barra de 0 a 60 m³ con ticks cada 5 m³: `Bloque1` verde (0–15), `Bloque2` amarillo (15–30) y `Bloque3` rojo (30–60).
+- Relleno del color del bloque actual, marcador de la posición actual y marca punteada de la proyección al cierre.
+- Solo aparece un aviso de IVA si estás a 3 m³ o menos de los 30, o si ya los pasaste. No hay resumen de base ni texto de proyección debajo de la barra.
+
+La barra se detiene en 60 m³; si el consumo pasa de 60, el número sigue subiendo pero la barra queda al tope.
+
+### La proyección
+
+La proyección usa el **promedio de L/día de los últimos 7 días con datos del ciclo** y lo extiende hasta la fecha de corte. Es la única simulación de la app: no hay slider ni escenarios.
+
+La proyección es una referencia, no una promesa. Si cambia el ritmo de consumo, cambia la proyección.
+
+## La tabla de mediciones
+
+La tabla muestra los datos crudos, de la medición más reciente a la más vieja:
+
+| Columna | Qué significa |
+|---|---|
+| Fecha | Cuándo se midió, con hora AM/PM |
+| Medición m³ | Número del medidor |
+| Δ m³ | Diferencia con la medición anterior |
+| Δ L | Esa diferencia en litros |
+| Horas | Tiempo entre las dos mediciones, redondeado a horas enteras |
+| L/h | Litros por hora entre las dos mediciones, sin la unidad en la celda |
+| Nota | Nota libre, en una sola línea |
+
+En pantallas angostas se ocultan **Δ m³**, **Horas** y **Nota**; quedan fecha, medición, Δ L y L/h. Para ver todas las columnas, usá una pantalla más ancha. Cada medición ocupa una sola fila.
+
+- **Buscar:** el campo de búsqueda filtra por nota o por medición.
+- **Favorito:** deslizá hacia la izquierda sobre una fila, o presioná `F` con la fila enfocada. La fila se pinta de verde. El favorito solo marca la fila; no filtra, no genera reportes y no se guarda en la hoja.
+- **Solo lectura:** la tabla no abre ningún editor. Para corregir una fila, editá la hoja y sincronizá.
+- **Outlier:** si una fila tiene un icono de advertencia al inicio, ese día tuvo un consumo atípico.
+
+### Cómo se marcan los outliers
+
+La app calcula un consumo diario normalizado por las horas reales entre mediciones. Los huecos no generan picos falsos.
+
+Para cada ciclo toma los **últimos 14 días con datos** y calcula la mediana y la banda normal. Un día es outlier si supera `max(mediana × 2, mediana + 3 × MAD)`. Con menos de 5 días usa el promedio del ciclo como referencia.
+
+La tabla solo muestra el icono de advertencia; no crea tarjetas de fuga ni analiza el texto de las notas. Los outliers de días más viejos que la ventana de 14 días no se marcan.
+
+## Gráficas
+
+Hay dos gráficas, una al lado de la otra en desktop. No hay pills ni filtro de periodo: siempre comparan el ciclo actual contra el anterior.
+
+1. **Curva de consumo:** m³/día por **día del ciclo** (`día 1`, `día 5`, …), en curva. Línea actual azul y gruesa, anterior gris clara y fina; puntos pequeños del color de cada línea, sin semáforo. Chip con el promedio actual (`0.66 m³/día actual`). Sin promedio dibujado ni proyección.
+2. **Periodo anterior vs actual:** mide **tarifa estimada**, no consumo. Eje Y en ₡ acumulados por día del ciclo. Línea actual azul y gruesa, anterior gris clara y fina; proyección actual punteada. El área bajo la línea actual va rellena en azul suave. **Sin puntos.** La factura usa base, `floor`, bloques ARESEP, cargo fijo e IVA. El chip muestra `₡5,819 actual`.
+
+Los periodos con 30, 31 o 28 días se alinean por día de ciclo hasta el máximo; es una comparación estimada. La tabla queda debajo, a todo el ancho.
+
+La tabla sigue mostrando L/h entre mediciones, pero los gráficos ya no usan L/h ni flujo basal.
+
+## Configuración
+
+El engranaje abre un diálogo con:
+
+- **Ciclo:** día de corte 20 fijo, ciclo actual (solo `YYYY-MM`), base del ciclo y lectura anterior. Es solo lectura; la ventana avanza sola.
+- **Tarifas ARESEP:** tabla combinada de solo lectura, cargo fijo e IVA.
+- **Datos:** fuente Google Sheets, botón **Sincronizar hoja**, estado del último sync, aviso de filas locales fuera de la hoja y descarga de `data.csv`.
+- **Tema:** automático, claro u oscuro.
+- **Acerca de:** versión, datos locales y aviso de que la app no escribe la hoja ni usa cuenta o token.
+
+No hay configuración de proyección, alertas, tarifas editables, importación, backup ni reset.
 
 ## Cómo se calcula la factura
 
 Tarifas ARESEP vigentes al 2026-10-23, AyA residencial con alcantarillado, en colones por m³:
 
-- Bloque 1–15: acueducto 437, alcantarillado 408, hidrantes 23, TPRH 5.
-- Bloque 16–30: 875, 867, 24, 6.
-- Bloque 31–60: 1,210, 997, 26, 6.
-- Bloque 61+: 2,005, 1,807, 30, 7.
-- Cargo fijo: acueducto 2,000; alcantarillado 1,200.
+| Bloque | ₡ por m³ |
+|---|---:|
+| 1–15 | 873 |
+| 16–30 | 1,772 |
+| 31–60 | 2,239 |
+| 61+ | 3,849 |
+
+Cargo fijo: ₡3,200.
 
 El cálculo es:
 
-1. Se trunca cada lectura a m³ enteros: `floor(actual) - floor(base)`.
-2. Se reparte el consumo en bloques.
-3. Se suman los cargos fijos.
-4. Si el consumo facturable supera 30 m³, se aplica IVA del 13% sobre **todo el acueducto**.
-5. El total se muestra redondeado hacia arriba al colón.
+1. Truncar cada medición a m³ enteros: `floor(actual) - floor(base)`.
+2. Repartir el consumo facturable en bloques.
+3. Sumar los cargos fijos.
+4. Si el consumo facturable supera 30 m³, aplicar IVA del 13% sobre **todo el acueducto**, no solo sobre el bloque 31.
+5. Mostrar el total redondeado hacia arriba al colón.
 
-## Exacto vs facturable
+Con 30 m³ no hay IVA. Con 31 m³ el salto es de unos **₡5,215**. Por eso la tarjeta avisa cuando la proyección cruza los 30 m³.
 
-- **Consumo exacto:** lectura actual menos base, con 3 decimales. Sirve para entender.
-- **Consumo facturable:** diferencia de las lecturas truncadas. Es el que usa AYA para cobrar.
+La factura es una estimación para presupuestar. No reemplaza el recibo de AYA.
 
-Ejemplo: base 100.283 y lectura 103.077.
+## CSV y hoja de cálculo
 
-- Exacto: 2.794 m³.
-- Facturable: `floor(103.077) - floor(100.283) = 103 - 100 = 3 m³`.
+La fuente viva es el **CSV publicado de Google Sheets**. La hoja y el archivo semilla solo tienen tres columnas:
 
-## El salto de IVA a los 30 m³
-
-Con 30 m³ no hay IVA. Con 31 m³ el IVA se aplica a todo el acueducto, no solo al m³ 31. El salto es de unos **₡5,215**. Por eso la app avisa cuando la proyección cruza ese umbral o cuando estás a pocos m³.
-
-## Fugas: L/h, flujo basal y costo
-
-Para cada par de lecturas:
-
-```
-L/h = (lectura_2 - lectura_1) × 1000 / horas
+```csv
+fecha,medicion,nota
 ```
 
-- **Flujo basal:** percentil 10 de los L/h positivos. Con pocos datos, el mínimo positivo.
-- **Nocturno:** promedio de los intervalos entre 22:00 y 06:00.
-- **Pérdida mensual:** flujo basal × 24 × 30 / 1000 m³.
-- **Costo de fuga:** diferencia de factura si ese consumo extra sigue todo el mes.
+- Consumo, litros, L/h, facturas y proyecciones **no** se guardan: se recalculan.
+- La app lee la hoja al abrir, al volver a la pestaña y al recuperar red, con `cache: 'no-store'`.
+- El merge es por `fecha|medicion`: la hoja manda en valor y nota; los favoritos locales se conservan.
+- Las filas locales que no estén en la hoja se mantienen y se avisan; no se borran.
+- La semilla `src/data.csv` tiene 66 mediciones, del 20 de setiembre al 24 de octubre de 2026, y se usa si no hay red o la hoja falla. Las últimas dos son 23-OCT 21:23 `103.643` (extra) y 24-OCT 09:07 `103.910` (diaria).
+- El 20 de setiembre empieza en `73.000`; el 24 de setiembre el dato real es `79.656`. Los días 20, 21, 22 y 23 se completaron para que el total no creara un pico falso.
+- El archivo semilla usa `MM/DD/YYYY hh:mm AM/PM`. La app acepta ese formato y también ISO 8601. Al descargar desde Configuración, escribe ISO con offset `-06:00`.
+- La app **no escribe** la hoja ni importa CSV o JSON desde la interfaz. La descarga sirve para el repo o para pegar los datos en un chat.
 
-Un flujo basal de 1 L/h o más enciende el aviso amarillo; 5 L/h o más, el rojo. La app no afirma “fuga confirmada”: dice **flujo continuo sospechoso**.
+## Sin conexión e instalación
 
-## Notas vs medidor
+- La app abre y funciona sin red con la copia local de las mediciones en IndexedDB.
+- Si estás sin conexión, la cabecera muestra la etiqueta **offline** y el sync queda pendiente hasta que vuelva la red.
+- No hay banner de instalación. Para instalarla, usá el menú del navegador; en iPhone o iPad, Compartir → Agregar a pantalla de inicio.
+- Cuando hay una versión nueva, aparece **Actualizar / Después**. La app no recarga sola.
 
-La app lee cantidades en las notas:
+## Privacidad
 
-- `6 litros`, `20L+5L+10L`, `0.004` (m³).
-- Calcula `no explicado = litros del medidor - litros de la nota`.
-- Si sobran más de 2 L (configurable), muestra la señal con los L/h no explicados.
-
-Si la nota dice “el medidor sigue girando”, lo marca aunque no haya cantidad. Las cantidades no corrigen el CSV: son señales.
-
-## Gráficas y outliers
-
-- **L/día:** barras por día, normalizadas por el intervalo real. Un hueco de 3 días no genera un pico falso.
-- **Banda normal:** mediana de los últimos 14 días y percentiles 25–75, descartando outliers.
-- **Outlier diario:** supera `max(mediana × 2, mediana + 3 × MAD)`, configurable.
-- **Acumulado:** m³ del ciclo contra los umbrales 15, 30 y 60, con proyección al cierre.
-- **L/h:** flujo entre lecturas con línea de flujo basal.
-
-## Días sin lectura: el “super error”
-
-Si falta la lectura de ayer, o la última tiene más de 36 horas, aparece una **alerta roja bloqueante**:
-
-- Podés agregar la lectura ahora.
-- O marcarla como revisada (“Ya revisé, continuar”).
-
-El aviso queda en Hoy hasta resolverlo. Sin lectura diaria el radar pierde precisión.
-
-## Flags, notas y etiquetas
-
-- **Flag:** estrella en desktop, swipe o botón en móvil. Marca una lectura para revisar.
-- **Notas:** texto libre; la app busca cantidades y frases de fuga.
-- **Etiquetas:** diaria, extra, incidente, ajuste, llave-medidor, llave-alfonso, llave-ducha, casa1, casa2.
-
-## CSV y resumen para chat
-
-- `data.csv` es la única fuente de lecturas y solo tiene `fecha,medicion,nota`.
-- Consumo, litros, L/h y costos **no** se guardan: se recalculan.
-- `resumen.md` incluye configuración, anomalías, fugas, factura y lecturas para pegar en un chat.
-- Podés copiar el resumen o descargar ambos archivos desde Lecturas.
-
-## Gist, backup y privacidad
-
-- El gist es opcional y público si lo creás. La sincronización automática llega en la siguiente fase; por ahora la app guarda el token y el ID listos, y el backup JSON/CSV funciona sin gist.
-- El token de GitHub vive solo en el almacenamiento local de este dispositivo; nunca va al repositorio ni al gist.
-- El backup JSON exporta todo el estado.
-- Las notas pueden contener nombres. Si compartís el gist, eso también se comparte.
+- La app lee una hoja publicada de Google Sheets. No hay cuenta, gist ni token.
+- **La hoja es pública:** quien tenga el link puede leer las notas, incluidos nombres o direcciones.
+- La copia local vive en IndexedDB. No hay analytics ni CDN.
+- Los favoritos son locales y no se envían a la hoja.
+- Si compartís el CSV descargado, compartís esas notas.
 
 ## Glosario
 
-- **Medidor:** contador de agua; se lee en m³.
-- **Lectura / medición:** número del medidor en un momento.
-- **Consumo:** diferencia entre lectura actual y base del ciclo.
-- **m³:** metro cúbico, 1,000 litros.
-- **L/h:** litros por hora entre dos lecturas.
-- **Ciclo:** periodo de facturación; acá va del 20 al 20.
-- **Corte:** lectura de cierre e inicio de ciclo.
-- **Base:** lectura de referencia del ciclo actual.
+- **Medición:** número del medidor en un momento, en m³.
+- **Consumo:** diferencia entre mediciones, o entre la medición actual y la base.
+- **Ciclo:** periodo de facturación, del 20 al 20.
+- **Base:** medición de referencia del ciclo; se deriva de la última medición antes del día 20.
+- **Exacto:** consumo con los tres decimales del medidor.
+- **Facturable:** consumo después de truncar cada medición a m³ enteros.
 - **Bloque:** tramo de consumo con tarifa propia.
-- **Cargo fijo:** cobro mensual independiente del consumo.
-- **Acueducto / alcantarillado / hidrantes / TPRH:** componentes de la factura.
-- **IVA:** impuesto del 13%.
-- **Fuga:** flujo continuo no explicado por el consumo normal.
-- **Llave-medidor / llave-alfonso / llave-ducha:** llaves del inmueble.
-- **Casa 1 / Casa 2:** sectores del inmueble.
-- **Flag:** marca personal para revisar una lectura.
-- **Outlier:** valor atípico frente al comportamiento normal.
-- **Gist:** archivo remoto de GitHub.
-- **PWA:** app web instalable y offline.
+- **IVA:** 13% sobre todo el acueducto cuando el consumo facturable pasa de 30 m³.
+- **L/h:** litros por hora entre dos mediciones, en la tabla.
+- **Promedio del ciclo:** consumo exacto del ciclo dividido entre los días transcurridos desde el corte, en m³/día.
+- **Outlier:** día con consumo atípico frente a la mediana reciente.
+- **Favorito:** marca personal en una fila; se pinta de verde y solo vive en ese dispositivo.
+- **Hoja:** CSV publicado de Google Sheets con `fecha,medicion,nota`; es la fuente de las mediciones y la app no la escribe.
+- **PWA:** app web instalable que funciona sin conexión.
 
 ## Limitaciones
 
 - La factura es una estimación; el recibo real manda.
-- No hay multiusuario ni sincronización en tiempo real.
-- No se scrapean tarifas: se actualizan a mano en Ajustes.
-- Sin notificaciones push en esta versión.
+- No se confirma una fuga: solo se muestran outliers y el L/h crudo de la tabla.
+- No hay alta ni edición dentro de la app: se hace en Google Sheets y se sincroniza.
+- No hay gist, cuenta, backup ni importación.
+- No se borran mediciones desde la app; se corrigen en la hoja.
+- La hoja es pública: no escribas ahí datos que no quieras compartir.
+- No hay notificaciones push, multiusuario ni app nativa.
 - La app no reemplaza la revisión física del medidor ni de las llaves.

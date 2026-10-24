@@ -1,5 +1,7 @@
 # Medidor AYA — Plan de implementación
 
+> **Nota de vigencia (2026-10-24):** este documento conserva el plan original. El rediseño implementado —una sola página, ciclos derivados 20 → 20, sin gist ni cierre manual— está descrito en `README.md`, `instructions.md` y `AGENTS.md`. Las secciones que quedaron obsoletas están listadas en `docs/planning-errata.md`.
+
 **Estado:** aprobado para construir  
 **Fecha:** 2026-10-24  
 **Repo:** `/root/projects/medidor`  
