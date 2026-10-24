@@ -1,0 +1,61 @@
+fecha,medicion,nota
+09/24/2026 08:41 AM,79.656,medicion diaria antes de llave-ducha casa2
+09/25/2026 07:24 AM,80.117,medicion diaria antes de llave-ducha casa2
+09/26/2026 07:49 AM,82.005,medicion diaria antes de llave-ducha casa2
+09/27/2026 09:32 AM,82.775,medicion diaria antes de llave-ducha casa2
+09/28/2026 06:36 AM,83.348,medicion diaria antes de llave-ducha casa2
+09/29/2026 06:26 AM,83.945,se puso la llave-ducha en casa2
+09/29/2026 08:27 AM,84.170,se puso la llave-ducha en casa2
+09/29/2026 09:13 AM,84.178,se puso la llave-ducha en casa2
+09/29/2026 12:14 PM,84.280,se puso la llave-ducha en casa2
+09/29/2026 09:20 PM,84.302,se puso la llave-ducha en casa2
+09/30/2026 06:17 AM,84.351,medicion diaria
+10/01/2026 07:16 AM,84.802,medicion diaria
+10/02/2026 07:07 AM,85.129,medicion diaria
+10/02/2026 08:02 AM,85.173,medicion extra
+10/02/2026 09:29 AM,85.298,medicion extra
+10/03/2026 08:03 AM,86.382,medicion diaria
+10/03/2026 05:45 PM,86.731,medicion nocturna
+10/04/2026 08:37 AM,86.967,medicion diaria
+10/05/2026 07:58 AM,87.765,medicion diaria
+10/05/2026 09:49 AM,87.965,se midio por que se vio dando vueltas el medidor
+10/05/2026 10:15 AM,87.979,sigue dando vueltas medidor posiblemente llave-ducha esta abierta
+10/05/2026 11:15 AM,87.989,consumio poco pero sigue corriendo el medidor
+10/05/2026 12:28 PM,88.027,ya aqui se hablo con valeria para que cerrara la llave-ducha
+10/05/2026 01:28 PM,88.028,se revisó una hora despues para confirmar pero el medidor da vueltas solo que mas lento
+10/06/2026 08:31 PM,88.326,medicion diaria
+10/07/2026 08:53 AM,89.767,medicion diaria
+10/07/2026 01:05 PM,89.975,medidor dando vueltas lento y se lavó en la manana
+10/08/2026 02:04 PM,90.811,estan lavando los de atras pero el medidor sigue dando vueltas lento
+10/09/2026 06:59 AM,91.482,medicion diaria - revisar en la tarde porque la llave-ducha a veces queda abierta
+10/10/2026 09:38 AM,92.514,medicion diaria - sigue dando vueltas minimo el medidor
+10/11/2026 10:27 AM,93.283,medicion diaria
+10/11/2026 11:53 AM,93.405,medicion extra - se dejo la llave-ducha abierta
+10/11/2026 08:24 PM,93.463,medicion noctura - ya se cerro la llave-ducha abierta
+10/12/2026 08:41 AM,93.713,medicion diaria
+10/13/2026 08:40 AM,94.189,medicion diaria
+10/13/2026 12:20 PM,94.387,medicion porque suena mucho pero estaban llenando la lavadora en casa2
+10/14/2026 08:40 AM,94.878,medicion diaria
+10/14/2026 10:15 PM,95.285,medicion nocturna chatgpt investigando
+10/14/2026 11:15 PM,95.289,medicion nocturna chatgpt investigando despues de 1 hora porque deberia de ser 0 pero es 0.004
+10/15/2026 03:10 PM,96.816,medicion diaria se lavo en casa1 en la manana y en casa  lo raro es que el medidor está girando más rápido que antes
+10/15/2026 04:00 PM,96.910,medicion extra porque sigue dando vueltas
+10/15/2026 09:00 PM,97.732,"medicion extra y ya ahora si esta detenido el medidor cabron, seguro la casa2 para lavar ocupan la llave-ducha abierta no se como funciona ese laberinto de tubos"
+10/16/2026 07:35 AM,97.800,medicion diaria
+10/17/2026 07:35 AM,98.674,medicion diaria
+10/17/2026 12:20 PM,98.700,medicion extra
+10/17/2026 06:20 PM,98.979,medicion extra llave-ducha abierta
+10/17/2026 07:00 PM,98.999,medicion extra llave-ducha abierta ya se cerró
+10/18/2026 09:25 AM,99.125,medicion diaria
+10/18/2026 12:50 PM,99.395,medicion extra
+10/18/2026 09:50 PM,99.730,medicion extra
+10/19/2026 09:00 AM,99.959,medicion diaria
+10/19/2026 11:55 AM,100.006,medicion extra
+10/19/2026 07:05 PM,100.140,medicion extra
+10/19/2026 09:50 PM,100.156,medicion extra todo el dia ha pasado dando vueltas y rapido
+10/20/2026 09:00 AM,100.283,medicion diaria paso el trabajador de AYA revisando medidores miriam se estaba bañando en casa1. Apartir de aca se toma en cuenta para el siguiente mes de facturacion
+10/20/2026 10:05 AM,100.283,medicion extra
+10/21/2026 08:45 AM,101.082,"medicion diaria -- no hubo agua desde 7am a 7pm, en la noche se guardó cerca de 20L+5L+10L de agua"
+10/22/2026 07:45 AM,101.537,medicion diaria -- se lavó en casa2
+10/23/2026 08:15 AM,103.054,medicion diaria
+10/23/2026 09:20 AM,103.077,medicion extra - se consumieron 6 litros de agua. Es para revisar despues de la hora porque el medidor sigue dando vueltas cochinada
