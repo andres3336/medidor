@@ -15,7 +15,7 @@ App personal, offline-first e instalable como PWA para **leer la medición del m
 ## Flujo de la pantalla
 
 1. **Ciclo actual:** promedio diario desde el corte, tres métricas (consumo, lectura anterior y factura aproximada) y barra 0–60 m³ con ticks cada 5 y bloques verde/amarillo/rojo.
-2. **Gráficas:** dos tarjetas lado a lado en desktop, siempre actual vs anterior por día de ciclo. **Curva de consumo** en m³/día y **Periodo anterior vs actual** en ₡ estimados acumulados, con actual azul (área rellena) y anterior gris claro.
+2. **Gráficas:** dos tarjetas lado a lado en desktop, acumuladas por día de ciclo y comparadas con el periodo anterior. **Consumo** en m³ y **Facturación** en ₡ estimados, con actual azul (área rellena), anterior gris claro, proyección punteada y un punto por cada bloque tarifario nuevo.
 3. **Mediciones:** tabla cruda a todo el ancho, debajo de las gráficas, con fecha AM/PM, medición, Δ m³, Δ L, horas enteras, L/h y nota. En móvil se ocultan Δ m³, horas y nota. Es de solo lectura; solo el favorito es local.
 4. **Configuración:** ciclo y tarifas de solo lectura, estado de la hoja, sincronización, **Descargar CSV**, tema y “acerca de”.
 
@@ -36,7 +36,7 @@ Ejemplo con la hoja al 24-OCT: medición `103.910 m³`, base del ciclo `100.156 
 bun install
 bun run dev          # http://localhost:5173
 bun run check        # svelte-check + tsc
-bun run test         # 82 tests del dominio
+bun run test         # 86 tests del dominio
 bun run build        # dist/ + service worker
 bun run preview      # probar el build y la PWA
 bun run lint

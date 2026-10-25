@@ -19,7 +19,7 @@ App personal de una sola persona para leer la medición del medidor y el consumo
 ```sh
 bun run dev          # desarrollo
 bun run check        # svelte-check + tsc
-bun run test         # 82 tests del dominio
+bun run test         # 86 tests del dominio
 bun run build        # dist + sw.js
 bun run preview      # probar PWA real
 bun run lint
