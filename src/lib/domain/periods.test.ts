@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seedReadings } from './seed'
+import { fixtureReadings } from './__fixtures__/mediciones'
 import { buildCycles, currentCycle } from './cycles'
 import { buildDailySeries } from './readings'
 import { buildProjection } from './projections'
@@ -13,7 +13,7 @@ import {
 } from './periods'
 
 const now = new Date('2026-10-24T12:00:00-06:00')
-const readings = seedReadings()
+const readings = fixtureReadings()
 const cycles = buildCycles(readings, now)
 const cycle = currentCycle(cycles, now)!
 const days = buildDailySeries(readings)

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildInitialState } from './seed'
+import { fixtureState } from './__fixtures__/mediciones'
 import { deriveAnalytics } from '../state/derive'
 
-const state = buildInitialState()
+const state = fixtureState()
 const now = new Date('2026-10-24T12:00:00-06:00')
 const analytics = deriveAnalytics(state, now)
 

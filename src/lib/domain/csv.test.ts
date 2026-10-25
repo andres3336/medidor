@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseCsv, parseReadingsCsv, serializeReadingsCsv } from './csv'
-import { SEED_CSV, seedReadings } from './seed'
+import { fixtureReadings } from './__fixtures__/mediciones'
 import { buildCycles, currentCycle } from './cycles'
 
 describe('CSV', () => {
@@ -13,8 +13,8 @@ describe('CSV', () => {
     ])
   })
 
-  it('carga las 66 filas del data.csv sin errores', () => {
-    const parsed = parseReadingsCsv(SEED_CSV)
+  it('parsea las 66 filas de la hoja sin errores', () => {
+    const parsed = parseReadingsCsv(serializeReadingsCsv(fixtureReadings()))
     expect(parsed.errors).toEqual([])
     expect(parsed.readings).toHaveLength(66)
     expect(parsed.readings[0].at).toBe('2026-09-20T07:00:00-06:00')
@@ -50,7 +50,7 @@ describe('CSV', () => {
   })
 
   it('exporta solo fecha,medicion,nota', () => {
-    const csv = serializeReadingsCsv(seedReadings())
+    const csv = serializeReadingsCsv(fixtureReadings())
     const [header] = csv.split('\n')
     expect(header).toBe('fecha,medicion,nota')
     expect(csv).not.toContain('consumo')
@@ -77,7 +77,7 @@ describe('CSV', () => {
   })
 
   it('el 20 de octubre pertenece al ciclo nuevo', () => {
-    const cycles = buildCycles(seedReadings(), new Date('2026-10-24T12:00:00-06:00'))
+    const cycles = buildCycles(fixtureReadings(), new Date('2026-10-24T12:00:00-06:00'))
     expect(currentCycle(cycles)?.id).toBe('2026-10')
     expect(currentCycle(cycles)?.baseValue).toBe(100.156)
   })

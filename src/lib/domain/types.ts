@@ -1,6 +1,6 @@
 /** Tipos del dominio Medidor AYA. Los derivados NO se persisten: se recalculan. */
 
-export type ReadingSource = 'data.csv' | 'app'
+export type ReadingSource = 'sheet' | 'app'
 
 export type Reading = {
   id: string

@@ -126,7 +126,7 @@ export function parseReadingsCsv(text: string): CsvParseResult {
           at,
           value: truncate3(value),
           note: columns.nota >= 0 ? (row[columns.nota] ?? '').trim() : '',
-          source: 'data.csv',
+          source: 'sheet',
         }),
       )
     } catch (error) {
