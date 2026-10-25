@@ -4,8 +4,8 @@
 </script>
 
 {#if toast.message}
-  <div class="floating-toast" role="status">
-    <Icon name="check" size={16} />
+  <div class="floating-toast" class:is-error={toast.kind === 'error'} role="status">
+    <Icon name={toast.kind === 'error' ? 'alert' : 'check'} size={16} />
     <span>{toast.message}</span>
   </div>
 {/if}

@@ -10,6 +10,16 @@ export const SHEET_CSV_URL =
 
 export type SheetSyncStatus = 'idle' | 'syncing' | 'ok' | 'offline' | 'error'
 
+/**
+ * La hoja publicada se cachea en el CDN de Google varios minutos.
+ * `cache: 'no-store'` no alcanza; un parámetro nuevo por intento fuerza la lectura fresca.
+ */
+function freshSheetUrl(): string {
+  const url = new URL(SHEET_CSV_URL)
+  url.searchParams.set('t', String(Date.now()))
+  return url.toString()
+}
+
 export const sheetSync = $state<{
   status: SheetSyncStatus
   added: number
@@ -31,10 +41,11 @@ export const sheetSync = $state<{
 let inFlight = false
 let listenersReady = false
 
-export async function syncSheetCsv(): Promise<void> {
+export async function syncSheetCsv(manual = false): Promise<void> {
   if (inFlight) return
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     sheetSync.status = 'offline'
+    if (manual) showToast('Sin conexión: no se pudo sincronizar', 3600, 'error')
     return
   }
 
@@ -45,7 +56,7 @@ export async function syncSheetCsv(): Promise<void> {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 8000)
-    const response = await fetch(SHEET_CSV_URL, {
+    const response = await fetch(freshSheetUrl(), {
       cache: 'no-store',
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout))
@@ -70,10 +81,19 @@ export async function syncSheetCsv(): Promise<void> {
 
     if (merged.added + merged.updated > 0) {
       showToast(`Google Sheets: ${merged.added} nuevas · ${merged.updated} actualizadas`)
+    } else if (manual) {
+      showToast('Hoja al día')
     }
   } catch (error) {
-    sheetSync.status = typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'error'
-    sheetSync.error = error instanceof Error ? error.message : 'No se pudo leer la hoja'
+    const offlineNow = typeof navigator !== 'undefined' && !navigator.onLine
+    sheetSync.status = offlineNow ? 'offline' : 'error'
+    const message = error instanceof Error ? error.message : ''
+    sheetSync.error = offlineNow
+      ? 'Sin conexión: se usa la copia local'
+      : /fetch|network/i.test(message)
+        ? 'No se pudo conectar con Google Sheets'
+        : message || 'No se pudo leer la hoja'
+    if (manual) showToast(sheetSync.error, 4200, 'error')
   } finally {
     inFlight = false
   }
