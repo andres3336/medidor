@@ -127,8 +127,10 @@ días_restantes = (fin_del_ciclo - última_medición) / 24
 ## Gráficas
 
 - Dos gráficas, siempre actual vs último, sin filtro de periodo.
-- **Curva de consumo:** m³/día por día del ciclo. Línea anterior gris clara y fina, actual azul y gruesa; puntos pequeños del color de cada línea, sin semáforo. Chip con el promedio actual. Sin promedio dibujado ni proyección.
-- **Periodo anterior vs actual:** factura estimada acumulada en ₡ por día del ciclo (`día 1..N`). Línea anterior gris clara y fina, actual azul y gruesa con área rellena en azul suave, proyección actual punteada. Sin puntos.
+- **Consumo:** m³ acumulados por día del ciclo (`día 1..N`). Línea anterior gris clara y fina, actual azul y gruesa con área rellena en azul suave, proyección actual punteada. Sin puntos salvo los hitos de bloque.
+- **Facturación:** ₡ estimados acumulados por día del ciclo, misma estructura que Consumo. No mide consumo: mide la tarifa estimada con base, `floor`, bloques ARESEP, cargo fijo e IVA.
+- **Hitos de bloque:** un punto por cada bloque tarifario nuevo que alcanza cada periodo (`15`, `30` y `60` m³ facturables). Sale de `findBlockMilestones` sobre la serie acumulada real, sin proyección: usa el primer punto que cruza el umbral y marca el día y el monto de ese punto. Si un punto cruza varios bloques, se marcan todos ahí. Si el ciclo no llega al bloque, no hay punto.
+- Los hitos usan el color del periodo y se explican en la leyenda como “cambio de bloque”; el tooltip dice `Bloque N · 15 m³`.
 - `buildBillSeries` calcula la factura de cada punto con base, `floor`, bloques ARESEP, cargo fijo e IVA. `buildBillComparison` devuelve anterior/actual y la proyección.
 - Periodos de 28/30/31 días se alinean por día de ciclo hasta el máximo; es una comparación estimada.
 
@@ -189,7 +191,7 @@ días_restantes = (fin_del_ciclo - última_medición) / 24
 ## Archivos
 
 - Implementación: `src/lib/domain/*.ts` (anomalies, backup, billing, constants, csv, cycles, dates, format, gaps, initialState, periods, projections, readings, stats, tariffs, types) y `src/lib/state/sheetSync.svelte.ts`.
-- Tests: `src/lib/domain/*.test.ts` (82 casos), con la foto histórica de la ex semilla en `src/lib/domain/__fixtures__/mediciones.ts`.
+- Tests: `src/lib/domain/*.test.ts` (86 casos), con la foto histórica de la ex semilla en `src/lib/domain/__fixtures__/mediciones.ts`.
 - Estado inicial: `src/lib/domain/initialState.ts` (`buildInitialState()` con `readings: []`).
 - Documentación de usuario: `instructions.md` (manual del repo; no se renderiza dentro de la app).
 - UI: una sola página en `src/routes/Medidor.svelte` + `SettingsDialog`.

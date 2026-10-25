@@ -115,8 +115,10 @@ La tabla solo muestra el icono de advertencia; no crea tarjetas de fuga ni anali
 
 Hay dos gráficas, una al lado de la otra en desktop. No hay pills ni filtro de periodo: siempre comparan el ciclo actual contra el anterior.
 
-1. **Curva de consumo:** m³/día por **día del ciclo** (`día 1`, `día 5`, …), en curva. Línea actual azul y gruesa, anterior gris clara y fina; puntos pequeños del color de cada línea, sin semáforo. Chip con el promedio actual (`0.83 m³/día actual`). Sin promedio dibujado ni proyección.
-2. **Periodo anterior vs actual:** mide **tarifa estimada**, no consumo. Eje Y en ₡ acumulados por día del ciclo. Línea actual azul y gruesa, anterior gris clara y fina; proyección actual punteada. El área bajo la línea actual va rellena en azul suave. **Sin puntos.** La factura usa base, `floor`, bloques ARESEP, cargo fijo e IVA. El chip muestra `₡5,819 actual`.
+1. **Consumo:** m³ acumulados por **día del ciclo** (`día 1`, `día 5`, …). Línea actual azul y gruesa con área rellena en azul suave, anterior gris clara y fina, proyección actual punteada. Chip con el total acumulado (`3.754 m³ actual`).
+2. **Facturación:** mide **tarifa estimada**, no consumo. Eje Y en ₡ acumulados por día del ciclo, con la misma estructura que Consumo. La factura usa base, `floor`, bloques ARESEP, cargo fijo e IVA. El chip muestra `₡5,819 actual`.
+
+En las dos gráficas, un **punto** marca el día en que cada periodo alcanza un bloque tarifario nuevo: 15, 30 y 60 m³ facturables. El punto usa el color del periodo y el tooltip dice `Bloque N · 15 m³`. Si el ciclo no llega al bloque, no hay punto. La leyenda lo llama **cambio de bloque**.
 
 Los periodos con 30, 31 o 28 días se alinean por día de ciclo hasta el máximo; es una comparación estimada. La tabla queda debajo, a todo el ancho.
 

@@ -3,7 +3,8 @@
   import { app } from '../state/store.svelte'
   import { theme } from '../theme.svelte'
   import type { Analytics } from '../state/derive'
-  import { buildBillComparison, buildDailyCycle } from '../domain/periods'
+  import { buildBillComparison, buildCycleSeries, findBlockMilestones } from '../domain/periods'
+  import type { BlockMilestone } from '../domain/periods'
   import { ARESEP_TARIFFS_2026_10_23 } from '../domain/tariffs'
   import { formatM3, formatMoney, formatNumber } from '../domain/format'
 
@@ -19,8 +20,14 @@
     bandGreen: string
     bandYellow: string
     bandRed: string
+    surface: string
   }
   type ChartThemeFn = () => ChartTheme
+  type TooltipItem = {
+    dataset: { label?: string; milestone?: boolean }
+    parsed: { y: number }
+    raw?: { block?: number; threshold?: number }
+  }
 
   let { analytics }: { analytics: Analytics } = $props()
 
@@ -32,22 +39,33 @@
   let curveCanvas: HTMLCanvasElement | undefined = $state()
   let billCanvas: HTMLCanvasElement | undefined = $state()
 
+  const tariffs = ARESEP_TARIFFS_2026_10_23
   const billComparison = $derived(
     buildBillComparison(
       analytics.cycles,
       analytics.readings,
       analytics.cycle,
       analytics.projection,
-      ARESEP_TARIFFS_2026_10_23,
+      tariffs,
     ),
   )
   const previousCycle = $derived(billComparison.previous?.cycle ?? null)
-  const currentDaily = $derived(
-    buildDailyCycle(analytics.cycle, analytics.days, null, new Date(), analytics.hasReadingToday),
+  const currentSeries = $derived(
+    buildCycleSeries(analytics.cycle, analytics.readings, analytics.projection),
   )
-  const previousDaily = $derived(
-    previousCycle ? buildDailyCycle(previousCycle, analytics.days, null) : [],
+  const previousSeries = $derived(
+    previousCycle ? buildCycleSeries(previousCycle, analytics.readings, null) : null,
   )
+  const currentMilestones = $derived(
+    findBlockMilestones(analytics.cycle, analytics.readings, tariffs),
+  )
+  const previousMilestones = $derived(
+    previousCycle ? findBlockMilestones(previousCycle, analytics.readings, tariffs) : [],
+  )
+  const hasConsumo = $derived(
+    currentSeries.points.length > 1 || (previousSeries?.points.length ?? 0) > 1,
+  )
+  const hasMilestones = $derived(currentMilestones.length + previousMilestones.length > 0)
   const dayTicks = [1, 5, 10, 15, 20, 25, 30]
 
   onMount(async () => {
@@ -79,6 +97,49 @@
     const g = parseInt(hex.slice(2, 4), 16)
     const b = parseInt(hex.slice(4, 6), 16)
     return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  }
+
+  function tooltipLabel(item: TooltipItem, unit: 'm3' | 'money'): string {
+    if (item.dataset.milestone) {
+      const threshold = item.raw?.threshold
+      const name = `Bloque ${item.raw?.block ?? ''}`.trim()
+      return threshold == null ? name : `${name} · ${formatM3(threshold)} m³`
+    }
+    const label = item.dataset.label ?? ''
+    return unit === 'money'
+      ? `${label}: ${formatMoney(item.parsed.y)}`
+      : `${label}: ${formatM3(item.parsed.y)} m³`
+  }
+
+  /** Punto donde el ciclo alcanza un bloque tarifario nuevo. */
+  function milestoneDataset(
+    label: string,
+    milestones: BlockMilestone[],
+    unit: 'm3' | 'money',
+    color: string,
+    colors: ChartTheme,
+  ) {
+    return {
+      type: 'line',
+      label: `${label} bloques`,
+      milestone: true,
+      data: milestones.map((milestone) => ({
+        x: milestone.index + 1,
+        y: unit === 'm3' ? milestone.m3 : milestone.amount,
+        block: milestone.block,
+        threshold: milestone.thresholdM3,
+      })),
+      borderColor: color,
+      backgroundColor: color,
+      pointBackgroundColor: color,
+      pointBorderColor: colors.surface,
+      pointBorderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      pointHitRadius: 12,
+      showLine: false,
+      order: 1,
+    }
   }
 
   function baseOptions(themeColors: ChartTheme) {
@@ -133,51 +194,61 @@
     destroyCharts()
     const colors = chartThemeFn()
 
-    if (
-      curveCanvas &&
-      (currentDaily.some((point) => point.kind === 'actual') ||
-        previousDaily.some((point) => point.kind === 'actual'))
-    ) {
-      const maxDay = Math.max(currentDaily.length, previousDaily.length)
+    if (curveCanvas && analytics.cycle.baseValue != null && hasConsumo) {
+      const maxDay = billComparison.maxIndex + 1
       const datasets: unknown[] = []
 
-      if (previousCycle) {
-        const previousPoints = previousDaily.filter((point) => point.kind === 'actual')
+      if (previousCycle && previousSeries) {
         datasets.push({
           type: 'line',
           label: previousCycle.id,
-          data: previousPoints.map((point) => ({ x: point.dayNumber, y: point.m3PerDay })),
+          data: previousSeries.points.map((point) => ({ x: point.index + 1, y: point.m3 })),
           borderColor: colors.previous,
           backgroundColor: colors.previous,
           borderWidth: 1.5,
-          pointRadius: 1.5,
-          pointHoverRadius: 3.5,
-          pointHitRadius: 8,
-          pointBackgroundColor: colors.previous,
-          pointBorderColor: colors.previous,
-          tension: 0.35,
-          cubicInterpolationMode: 'monotone' as const,
+          pointRadius: 0,
+          tension: 0,
+          fill: false,
+        })
+        if (previousMilestones.length > 0) {
+          datasets.push(
+            milestoneDataset(previousCycle.id, previousMilestones, 'm3', colors.previous, colors),
+          )
+        }
+      }
+
+      datasets.push({
+        type: 'line',
+        label: `${analytics.cycle.id} real`,
+        data: currentSeries.points.map((point) => ({ x: point.index + 1, y: point.m3 })),
+        borderColor: colors.current,
+        backgroundColor: withAlpha(colors.current, 0.18),
+        borderWidth: 3,
+        pointRadius: 0,
+        tension: 0,
+        fill: 'origin' as const,
+      })
+
+      if (currentMilestones.length > 0) {
+        datasets.push(
+          milestoneDataset(analytics.cycle.id, currentMilestones, 'm3', colors.current, colors),
+        )
+      }
+
+      if (currentSeries.projected.length > 1) {
+        datasets.push({
+          type: 'line',
+          label: 'proyección',
+          data: currentSeries.projected.map((point) => ({ x: point.index + 1, y: point.m3 })),
+          borderColor: colors.projected,
+          backgroundColor: colors.projected,
+          borderWidth: 1.5,
+          borderDash: [5, 4],
+          pointRadius: 0,
+          tension: 0,
           fill: false,
         })
       }
-
-      const currentPoints = currentDaily.filter((point) => point.kind === 'actual')
-      datasets.push({
-        type: 'line',
-        label: analytics.cycle.id,
-        data: currentPoints.map((point) => ({ x: point.dayNumber, y: point.m3PerDay })),
-        borderColor: colors.current,
-        backgroundColor: colors.current,
-        borderWidth: 3,
-        pointRadius: 1.5,
-        pointHoverRadius: 3.5,
-        pointHitRadius: 8,
-        pointBackgroundColor: colors.current,
-        pointBorderColor: colors.current,
-        tension: 0.35,
-        cubicInterpolationMode: 'monotone' as const,
-        fill: false,
-      })
 
       const options = baseOptions(colors)
       charts.push(
@@ -213,7 +284,7 @@
                   maxTicksLimit: 6,
                   padding: 4,
                   font: { size: 10 },
-                  callback: (value: number) => formatNumber(value, 2),
+                  callback: (value: number) => formatNumber(value, 1),
                 },
                 grid: { color: colors.grid, drawTicks: false },
                 border: { display: false },
@@ -226,8 +297,7 @@
                 callbacks: {
                   title: (items: Array<{ parsed: { x: number } }>) =>
                     `Día ${Math.floor(items[0]?.parsed.x ?? 1)}`,
-                  label: (item: { dataset: { label?: string }; parsed: { y: number } }) =>
-                    `${item.dataset.label ?? ''}: ${formatM3(item.parsed.y)} m³/día`,
+                  label: (item: TooltipItem) => tooltipLabel(item, 'm3'),
                 },
               },
             },
@@ -253,6 +323,17 @@
           tension: 0,
           fill: false,
         })
+        if (previousMilestones.length > 0) {
+          datasets.push(
+            milestoneDataset(
+              previous.cycle.id,
+              previousMilestones,
+              'money',
+              colors.previous,
+              colors,
+            ),
+          )
+        }
       }
 
       datasets.push({
@@ -266,6 +347,12 @@
         tension: 0,
         fill: 'origin' as const,
       })
+
+      if (currentMilestones.length > 0) {
+        datasets.push(
+          milestoneDataset(current.cycle.id, currentMilestones, 'money', colors.current, colors),
+        )
+      }
 
       if (current.projected.length > 1) {
         datasets.push({
@@ -329,8 +416,7 @@
                 callbacks: {
                   title: (items: Array<{ parsed: { x: number } }>) =>
                     `Día ${Math.floor(items[0]?.parsed.x ?? 1)}`,
-                  label: (item: { dataset: { label?: string }; parsed: { y: number } }) =>
-                    `${item.dataset.label ?? ''}: ${formatMoney(item.parsed.y)}`,
+                  label: (item: TooltipItem) => tooltipLabel(item, 'money'),
                 },
               },
             },
@@ -354,23 +440,24 @@
   <div class="charts-head">
     <div>
       <h2 class="section-title" id="charts-title">Gráficas</h2>
-      <p class="small muted">Curva diaria y tarifa estimada, siempre actual vs anterior.</p>
     </div>
   </div>
 
   <div class="card flat chart-card">
     <div class="card-header">
       <div>
-        <div class="card-title">Curva de consumo</div>
-        <div class="card-subtitle">m³/día actual vs anterior, por día del ciclo.</div>
+        <div class="card-title">Consumo</div>
+        <div class="card-subtitle">m³ acumulados por día del ciclo.</div>
       </div>
-      <span class="chip">
-        {analytics.averageM3PerDay == null
-          ? '—'
-          : `${formatM3(analytics.averageM3PerDay, 2)} m³/día actual`}
-      </span>
+      {#if analytics.cycle.baseValue == null}
+        <span class="badge badge-warn">sin base</span>
+      {:else}
+        <span class="chip">{formatM3(currentSeries.totalM3)} m³ actual</span>
+      {/if}
     </div>
-    {#if currentDaily.every((point) => point.kind !== 'actual') && previousDaily.every((point) => point.kind !== 'actual')}
+    {#if analytics.cycle.baseValue == null}
+      <p class="small muted">Falta la base del ciclo actual.</p>
+    {:else if !hasConsumo}
       <p class="small muted">Sin mediciones para comparar.</p>
     {:else}
       <div class="chart-box"><canvas bind:this={curveCanvas}></canvas></div>
@@ -379,6 +466,12 @@
           <span><i class="legend-prev"></i>{previousCycle.id}</span>
         {/if}
         <span><i class="legend-current"></i>{analytics.cycle.id} actual</span>
+        {#if analytics.projection && analytics.cycle.open}
+          <span><i class="legend-dash"></i>proyección</span>
+        {/if}
+        {#if hasMilestones}
+          <span><i class="legend-dot"></i>cambio de bloque</span>
+        {/if}
       </div>
     {/if}
   </div>
@@ -386,10 +479,8 @@
   <div class="card flat chart-card">
     <div class="card-header">
       <div>
-        <div class="card-title">Periodo anterior vs actual</div>
-        <div class="card-subtitle">
-          ₡ estimados acumulados por día del ciclo; líneas actual vs anterior y área bajo el actual.
-        </div>
+        <div class="card-title">Facturación</div>
+        <div class="card-subtitle">₡ estimados acumulados por día del ciclo.</div>
       </div>
       {#if analytics.cycle.baseValue == null}
         <span class="badge badge-warn">sin base</span>
@@ -408,6 +499,9 @@
         <span><i class="legend-current"></i>{analytics.cycle.id} actual</span>
         {#if analytics.projection && analytics.cycle.open}
           <span><i class="legend-dash"></i>proyección</span>
+        {/if}
+        {#if hasMilestones}
+          <span><i class="legend-dot"></i>cambio de bloque</span>
         {/if}
       </div>
     {/if}
