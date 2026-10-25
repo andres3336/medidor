@@ -2,7 +2,6 @@ dist
 dev-dist
 node_modules
 bun.lock
-data.csv
 planning.md
 instructions.md
 .opencode
