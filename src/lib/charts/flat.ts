@@ -46,6 +46,7 @@ export type ChartTheme = {
   bandGreen: string
   bandYellow: string
   bandRed: string
+  surface: string
 }
 
 function cssVar(name: string, fallback: string): string {
@@ -65,6 +66,7 @@ export function chartTheme(): ChartTheme {
     bandGreen: cssVar('--block-1', PALETTE.bandGreen),
     bandYellow: cssVar('--block-2', PALETTE.bandYellow),
     bandRed: cssVar('--block-3', PALETTE.bandRed),
+    surface: cssVar('--surface', '#ffffff'),
   }
 }
 

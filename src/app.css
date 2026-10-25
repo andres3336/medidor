@@ -986,6 +986,14 @@ td.mark {
   background: var(--accent);
 }
 
+.chart-legend .legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  border: 1px solid var(--surface);
+}
+
 .chart-legend .legend-dash {
   height: 0;
   border-top: 2px dashed var(--chart-prev);

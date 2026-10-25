@@ -256,3 +256,57 @@ export function buildBillComparison(
     maxIndex: Math.max(1, roundTo(maxIndex, 3)),
   }
 }
+
+export type BlockMilestone = {
+  /** Número de bloque tarifario que se alcanza: 1 = 15 m³, 2 = 30 m³, 3 = 60 m³. */
+  block: number
+  thresholdM3: number
+  /** Índice en la serie acumulada (0 = corte del ciclo). */
+  index: number
+  at: string
+  /** m³ exactos acumulados en ese punto. */
+  m3: number
+  /** m³ facturables (floor) acumulados en ese punto. */
+  billableM3: number
+  /** Factura estimada acumulada en ese punto. */
+  amount: number
+}
+
+/**
+ * Punto donde el ciclo alcanza cada bloque tarifario nuevo.
+ * Usa la serie acumulada real, sin proyección, y el facturable con floor.
+ * Si un solo punto cruza varios bloques, se marcan todos en ese punto.
+ */
+export function findBlockMilestones(
+  cycle: Cycle,
+  readings: Reading[],
+  tariffs: Tariffs,
+): BlockMilestone[] {
+  if (cycle.baseValue == null) return []
+
+  const thresholds = tariffs.blocks
+    .map((block) => block.upTo)
+    .filter((value): value is number => value != null)
+  const series = buildCycleSeries(cycle, readings, null)
+  const milestones: BlockMilestone[] = []
+
+  for (const point of series.points) {
+    if (point.index <= 0) continue
+    const billable = billableConsumption(cycle.baseValue + point.m3, cycle.baseValue)
+    for (const [position, threshold] of thresholds.entries()) {
+      if (billable < threshold) continue
+      if (milestones.some((item) => item.thresholdM3 === threshold)) continue
+      milestones.push({
+        block: position + 1,
+        thresholdM3: threshold,
+        index: point.index,
+        at: point.at,
+        m3: point.m3,
+        billableM3: billable,
+        amount: calcBill(billable, tariffs).displayTotal,
+      })
+    }
+  }
+
+  return milestones
+}

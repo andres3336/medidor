@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fixtureReadings } from './__fixtures__/mediciones'
 import { buildCycles, currentCycle } from './cycles'
-import { buildDailySeries } from './readings'
+import { buildDailySeries, makeReading } from './readings'
 import { buildProjection } from './projections'
 import { defaultTariffs } from './tariffs'
 import {
@@ -9,8 +9,10 @@ import {
   buildBillSeries,
   buildCycleSeries,
   buildDailyCycle,
+  findBlockMilestones,
   trafficBand,
 } from './periods'
+import type { Cycle } from './types'
 
 const now = new Date('2026-10-24T12:00:00-06:00')
 const readings = fixtureReadings()
@@ -78,5 +80,66 @@ describe('comparación de factura estimada', () => {
     expect(comparison.previous?.cycle.id).toBe('2026-09')
     expect(comparison.previous?.totalAmount).toBe(37559)
     expect(comparison.current.totalAmount).toBe(5819)
+  })
+})
+
+describe('hitos de bloque', () => {
+  it('marca el día en que el ciclo 2026-09 alcanza el bloque 1', () => {
+    const milestones = findBlockMilestones(cycles[0], readings, defaultTariffs())
+    expect(milestones).toHaveLength(1)
+    expect(milestones[0].block).toBe(1)
+    expect(milestones[0].thresholdM3).toBe(15)
+    expect(milestones[0].billableM3).toBe(15)
+    expect(milestones[0].m3).toBeCloseTo(15.028, 3)
+    expect(milestones[0].amount).toBe(16295)
+    expect(Math.floor(milestones[0].index + 1)).toBe(16)
+  })
+
+  it('no inventa hitos si el ciclo no llega a un bloque', () => {
+    expect(findBlockMilestones(cycles[1], readings, defaultTariffs())).toEqual([])
+  })
+
+  it('marca cada bloque nuevo en su propio punto', () => {
+    const synthetic = [
+      makeReading({ at: '2026-10-21T08:00:00-06:00', value: 10 }),
+      makeReading({ at: '2026-10-23T08:00:00-06:00', value: 16 }),
+      makeReading({ at: '2026-10-25T08:00:00-06:00', value: 32 }),
+      makeReading({ at: '2026-10-27T08:00:00-06:00', value: 61 }),
+    ]
+    const syntheticCycle: Cycle = {
+      id: '2026-10',
+      label: '20 oct – 20 nov',
+      startAt: '2026-10-20T00:00:00-06:00',
+      endAt: '2026-11-20T00:00:00-06:00',
+      baseValue: 0,
+      baseReadingAt: null,
+      finalReading: 61,
+      finalReadingAt: '2026-10-27T08:00:00-06:00',
+      readingsCount: 4,
+      open: true,
+    }
+    const milestones = findBlockMilestones(syntheticCycle, synthetic, defaultTariffs())
+    expect(milestones.map((item) => item.thresholdM3)).toEqual([15, 30, 60])
+    expect(milestones.map((item) => Math.floor(item.index + 1))).toEqual([4, 6, 8])
+    expect(milestones.every((item) => item.amount > 0)).toBe(true)
+  })
+
+  it('si un punto cruza varios bloques, los marca todos ahí', () => {
+    const synthetic = [makeReading({ at: '2026-10-22T08:00:00-06:00', value: 70 })]
+    const syntheticCycle: Cycle = {
+      id: '2026-10',
+      label: '20 oct – 20 nov',
+      startAt: '2026-10-20T00:00:00-06:00',
+      endAt: '2026-11-20T00:00:00-06:00',
+      baseValue: 0,
+      baseReadingAt: null,
+      finalReading: 70,
+      finalReadingAt: '2026-10-22T08:00:00-06:00',
+      readingsCount: 1,
+      open: true,
+    }
+    const milestones = findBlockMilestones(syntheticCycle, synthetic, defaultTariffs())
+    expect(milestones.map((item) => item.thresholdM3)).toEqual([15, 30, 60])
+    expect(new Set(milestones.map((item) => item.index)).size).toBe(1)
   })
 })
