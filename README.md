@@ -5,11 +5,11 @@ App personal, offline-first e instalable como PWA para **leer la medición del m
 ## Qué es y qué no es
 
 - **Una sola página.** De arriba hacia abajo están el ciclo, las gráficas y la tabla cruda. No hay botón de agregar ni de editar.
-- **La hoja es la fuente.** La app lee el CSV publicado de Google Sheets al abrir, al volver a la pestaña y al recuperar red. La hoja solo tiene `fecha,medicion,nota`; el consumo, los litros, la factura y las proyecciones se calculan en la PWA.
+- **La hoja es la única fuente.** La app lee el CSV publicado de Google Sheets al abrir, al volver a la pestaña y al recuperar red. La hoja solo tiene `fecha,medicion,nota`; el consumo, los litros, la factura y las proyecciones se calculan en la PWA. Si no hay mediciones, la pantalla muestra **Todavía no hay mediciones** y el botón **Sincronizar hoja**.
 - **Solo lectura.** No hay alta ni edición dentro de la app. Para corregir o agregar una medición, editá la hoja y sincronizá.
-- **Configuración en un diálogo.** Se abre con el engranaje de la cabecera. Incluye el estado del sync y el botón **Sincronizar hoja**.
-- **Datos locales.** IndexedDB guarda una copia para funcionar sin red. No hay cuenta, gist ni token.
-- **PWA.** Se instala desde el navegador, abre sin red y avisa cuando hay una versión nueva.
+- **Configuración en un diálogo.** Se abre con el engranaje de la cabecera. Incluye el estado del sync, el botón **Sincronizar hoja** y **Descargar CSV**.
+- **Sin datos de fábrica.** La hoja es la única fuente. La primera sincronización necesita red una vez; después la app abre sin red con la última copia guardada. No hay cuenta, gist ni token.
+- **PWA.** Se instala desde el navegador, abre sin red después de la primera sync y avisa cuando hay una versión nueva.
 - **La factura es una estimación.** Se calcula con tarifas ARESEP de solo lectura; el recibo de AYA manda.
 
 ## Flujo de la pantalla
@@ -17,9 +17,9 @@ App personal, offline-first e instalable como PWA para **leer la medición del m
 1. **Ciclo actual:** promedio diario desde el corte, tres métricas (consumo, lectura anterior y factura aproximada) y barra 0–60 m³ con ticks cada 5 y bloques verde/amarillo/rojo.
 2. **Gráficas:** dos tarjetas lado a lado en desktop, siempre actual vs anterior por día de ciclo. **Curva de consumo** en m³/día y **Periodo anterior vs actual** en ₡ estimados acumulados, con actual azul (área rellena) y anterior gris claro.
 3. **Mediciones:** tabla cruda a todo el ancho, debajo de las gráficas, con fecha AM/PM, medición, Δ m³, Δ L, horas enteras, L/h y nota. En móvil se ocultan Δ m³, horas y nota. Es de solo lectura; solo el favorito es local.
-4. **Configuración:** ciclo y tarifas de solo lectura, estado de la hoja, sincronización, descarga de `data.csv`, tema y “acerca de”.
+4. **Configuración:** ciclo y tarifas de solo lectura, estado de la hoja, sincronización, **Descargar CSV**, tema y “acerca de”.
 
-Ejemplo con los datos semilla: medición `103.910 m³`, base del ciclo `100.156 m³`, consumo exacto `3.754 m³` y facturable `3 m³`.
+Ejemplo con la hoja al 24-OCT: medición `103.910 m³`, base del ciclo `100.156 m³`, consumo exacto `3.754 m³` y facturable `3 m³`.
 
 ## Stack
 
@@ -36,7 +36,7 @@ Ejemplo con los datos semilla: medición `103.910 m³`, base del ciclo `100.156 
 bun install
 bun run dev          # http://localhost:5173
 bun run check        # svelte-check + tsc
-bun run test         # 78 tests del dominio
+bun run test         # 82 tests del dominio
 bun run build        # dist/ + service worker
 bun run preview      # probar el build y la PWA
 bun run lint
@@ -44,6 +44,8 @@ bun run format
 ```
 
 CI usa Node 22 LTS con Bun (`oven-sh/setup-bun`) y `bun install --frozen-lockfile`.
+
+Los tests de dominio no leen ningún CSV: usan la foto histórica de la ex semilla en `src/lib/domain/__fixtures__/mediciones.ts`.
 
 ## Estructura
 
@@ -53,10 +55,11 @@ src/
   routes/Medidor.svelte   única página: ciclo, gráficas y tabla
   lib/
     domain/               cálculo puro: ciclos, facturación, promedios, outliers, CSV
+      initialState.ts     arranque vacío; la hoja es la única fuente
+      __fixtures__/       foto histórica de 66 lecturas, solo para tests
     state/                IndexedDB, store con runes, sync de la hoja, derivados y toasts
     components/           tarjeta de ciclo, tabla, diálogos, iconos, swipe
     charts/               Chart.js con tema plano
-src/data.csv              semilla y respaldo sin red (66 filas)
 instructions.md           manual de usuario del repo; no se renderiza dentro de la app
 planning.md               plan aprobado original; ver docs/planning-errata.md
 docs/                     notas técnicas, incluida la errata del plan
@@ -67,18 +70,18 @@ AGENTS.md                 convenciones para agentes
 ## PWA y offline
 
 - Una sola ruta: `start_url` y `scope` son `./`; no hay hash routing.
-- El service worker precachea el shell (`js`, `css`, `html`, iconos). `src/data.csv` viaja dentro del bundle como semilla.
+- El service worker precachea el shell (`js`, `css`, `html`, iconos). La app no incluye mediciones en el bundle: el primer arranque sin red muestra el estado vacío hasta que sincronices una vez.
 - IndexedDB guarda la copia local de las mediciones; si el navegador no la permite, se usa un respaldo en `localStorage`.
-- Al abrir, al volver a la pestaña y al recuperar red, la app intenta leer la hoja publicada. Si falla o no hay red, sigue con la copia local.
+- Al abrir, al volver a la pestaña y al recuperar red, la app intenta leer la hoja publicada. Si falla o no hay red, sigue con la copia local; si nunca sincronizó, no hay datos que mostrar.
 - El service worker usa `registerType: 'prompt'`: la app no recarga sola. Cuando hay una versión nueva, aparece **Actualizar / Después**.
 - No hay banner de instalación. Para instalar, usá el menú del navegador; en iOS, Compartir → Agregar a pantalla de inicio.
 
 ## Datos y privacidad
 
-- **Fuente viva:** CSV publicado de Google Sheets. La hoja solo guarda `fecha,medicion,nota`; nada derivado.
+- **Fuente única:** CSV publicado de Google Sheets. La hoja solo guarda `fecha,medicion,nota`; nada derivado.
 - **Merge por `fecha|medicion`:** la hoja manda en los valores y las notas; los favoritos locales se conservan por clave. Las filas locales que no estén en la hoja no se borran: se avisan como “N filas locales no están en la hoja”.
-- **Semilla:** `src/data.csv` tiene **66 mediciones**, del 20 de setiembre al 24 de octubre de 2026, y sirve para arrancar sin red o con la hoja vacía.
-- El archivo semilla usa `MM/DD/YYYY hh:mm AM/PM`; la app acepta ese formato y también ISO 8601. Al descargar, exporta ISO con offset `-06:00`.
+- **Sin semilla local.** La app arranca con 0 mediciones y la hoja es la única fuente. La primera sincronización necesita red; IndexedDB guarda la copia para después.
+- El parser acepta `MM/DD/YYYY hh:mm AM/PM` (el formato viejo de la hoja) e ISO 8601. **Descargar CSV** genera `medidor.csv` en ISO con offset `-06:00` desde la copia en memoria.
 - No hay gist, token, cuenta, analytics ni CDN. La app no escribe en la hoja: solo hace `fetch` de una URL pública con CORS.
 - **La hoja es pública.** Quien tenga el link puede leer las notas, incluidos nombres o direcciones. Si eso molesta, hay que pasar a una hoja privada con OAuth o a una base con autenticación.
 - En `localStorage` solo quedan el tema y, si hace falta, el respaldo del estado. Al arrancar se limpian las claves viejas del token del gist.

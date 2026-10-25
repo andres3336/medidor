@@ -14,6 +14,13 @@ function num(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
+/** Los estados viejos marcaban la semilla como `data.csv`; ahora la fuente es la hoja. */
+function normalizeSource(value: unknown): Reading['source'] {
+  if (value === 'sheet' || value === 'app') return value
+  if (value === 'data.csv') return 'sheet'
+  return undefined
+}
+
 function normalizeReading(value: unknown, index: number): Reading {
   if (!isRecord(value)) throw new Error(`Lectura ${index + 1} inválida`)
   const at = str(value.at)
@@ -31,7 +38,7 @@ function normalizeReading(value: unknown, index: number): Reading {
       ? value.tags.filter((tag): tag is string => typeof tag === 'string')
       : [],
     flag: value.flag === true,
-    source: value.source === 'data.csv' || value.source === 'app' ? value.source : undefined,
+    source: normalizeSource(value.source),
     createdAt: str(value.createdAt, nowIso()),
     updatedAt: str(value.updatedAt, nowIso()),
     deleted: value.deleted === true,

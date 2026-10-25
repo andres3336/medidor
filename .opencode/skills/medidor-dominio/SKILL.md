@@ -1,6 +1,6 @@
 ---
 name: Dominio Medidor AYA
-description: Reglas normativas de facturación, ciclos derivados, lecturas, proyección, outliers, promedios, CSV y sync con Google Sheets del Medidor AYA. Cargar antes de tocar src/lib/domain, src/lib/state/sheetSync.svelte.ts, data.csv o cualquier cálculo de dinero.
+description: Reglas normativas de facturación, ciclos derivados, lecturas, proyección, outliers, promedios, CSV y sync con Google Sheets del Medidor AYA. Cargar antes de tocar src/lib/domain, src/lib/state/sheetSync.svelte.ts o cualquier cálculo de dinero.
 ---
 
 # Dominio Medidor AYA
@@ -9,10 +9,11 @@ Este skill es la verdad operativa del proyecto. Si el código y este documento d
 
 ## Regla de oro
 
-La hoja publicada de Google Sheets y `src/data.csv` guardan **solo** `fecha,medicion,nota`. Consumo, Δ, litros, L/h, costos, proyecciones y outliers son derivados y se recalculan en memoria. Nunca los persistas ni los agregues como columnas.
+La hoja publicada de Google Sheets guarda **solo** `fecha,medicion,nota`. Consumo, Δ, litros, L/h, costos, proyecciones y outliers son derivados y se recalculan en memoria. Nunca los persistas ni los agregues como columnas.
 
-- **Fuente viva:** CSV publicado de Google Sheets, solo lectura.
-- **Semilla y respaldo sin red:** `src/data.csv`, importado con `?raw`.
+- **Fuente única:** CSV publicado de Google Sheets, solo lectura.
+- **Sin semilla local:** `buildInitialState()` devuelve `readings: []`; no hay datos de fábrica ni CSV empaquetado.
+- **Caché:** IndexedDB guarda la copia de la última sync. La primera carga necesita red una vez; después la app abre sin red.
 - La app **no escribe** la hoja. El alta y la edición se hacen en Google Sheets; la PWA solo lee y mergea.
 
 ## Unidades y formatos
@@ -24,7 +25,7 @@ La hoja publicada de Google Sheets y `src/data.csv` guardan **solo** `fecha,medi
 - Números: punto decimal y coma de miles (`1,234.567`), como el CSV original.
 - Fechas: ISO 8601 con offset `-06:00`; Costa Rica no tiene DST. El parser acepta también `MM/DD/YYYY hh:mm AM/PM`.
 - La UI muestra las fechas en `DD-MMM` mayúscula (`23-OCT`, `20-NOV`). La tabla agrega hora AM/PM.
-- El CSV exportado usa ISO con `-06:00`; el CSV semilla usa el formato viejo.
+- El CSV exportado usa ISO con `-06:00`; la hoja puede venir en el formato viejo `MM/DD/YYYY hh:mm AM/PM`.
 
 ## Lecturas y consumo
 
@@ -37,7 +38,9 @@ Si el facturable es negativo, se muestra 0 y se marca dato dudoso.
 
 Ejemplo canónico del ciclo actual: base `100.156`, medición `103.910` → exacto `3.754`, facturable `3`.
 
-El ciclo 2026-09 va de base `73.000` a `100.156` → exacto `27.156`, facturable `27`.
+En la foto histórica de tests, el ciclo 2026-09 va de base `73.000` a `100.156` → exacto `27.156`, facturable `27`.
+
+En la hoja viva no hay mediciones antes del 24 de setiembre: el ciclo 2026-09 arranca con la primera lectura (`79.656`) como base.
 
 `100.283` **no** es la base del ciclo actual: es una medición del 20 de octubre que pertenece al ciclo `2026-10`.
 
@@ -92,7 +95,7 @@ Al mostrar, `displayTotal` redondea hacia arriba (31 → ₡48,090). Los tests u
 - La **base** es la última medición **anterior** al inicio del ciclo. Si no existe (primer ciclo), se usa la primera medición del ciclo. Si no hay mediciones, `baseValue = null`.
 - Los ciclos **no se persisten**. Se derivan de las mediciones; editar una medición del 19 cambia la base del ciclo siguiente.
 - No hay cierre manual, ni lectura final ajustada, ni `billedM3`, ni `actualBill`, ni `CycleAdjustment`, ni auditoría.
-- Semilla: ciclo 2026-09 base 73.000, 58 mediciones, última 100.156; ciclo 2026-10 base 100.156 (19 oct 21:50), 8 mediciones, última 103.910.
+- Foto histórica de la ex semilla (fixture de tests, no viaja al bundle): ciclo 2026-09 base 73.000, 58 mediciones, última 100.156; ciclo 2026-10 base 100.156 (19 oct 21:50), 8 mediciones, última 103.910. Incluye 4 días completados de setiembre y dos horas que la hoja ya corrigió.
 - Promedio diario del ciclo anterior = consumo exacto del ciclo anterior dividido entre los días desde su corte hasta su última medición. Para 2026-09 da ≈ `0.91 m³/día`.
 - Días faltantes: aviso suave si falta la medición de ayer o si la última tiene más de 36 h. No bloquea.
 
@@ -158,11 +161,13 @@ días_restantes = (fin_del_ciclo - última_medición) / 24
 ## Estado, hoja y CSV
 
 - `AppState` schema 2 = `{ schema, updatedAt, readings }`. Solo se persisten mediciones.
+- `ReadingSource` es `'sheet' | 'app'`. `parseReadingsCsv()` marca las filas de la hoja con `source: 'sheet'`. `normalizeAppState()` acepta estados viejos con `'data.csv'` y los migra a `'sheet'`.
 - `tags` y `flag` existen en `Reading`; la UI solo marca el favorito. `deleted` es un tombstone heredado; la UI no borra.
 - **Sync con Google Sheets:** `src/lib/state/sheetSync.svelte.ts` hace `fetch` del CSV publicado (`cache: 'no-store'`, timeout de 8 s) al arrancar, al volver a la pestaña (`visibilitychange`) y al recuperar red (`online`).
 - **Merge** (`mergeSheetReadings`): clave `fecha|medicion`. La hoja manda en valor y nota; `flag` y `tags` locales se conservan. Las filas locales que no están en la hoja no se borran: se cuentan en `localOnly` y se avisan en Configuración.
-- `src/data.csv` es **semilla y respaldo sin red**: **66 filas**, 2026-09-20 07:00 → 2026-10-24 09:07, solo `fecha,medicion,nota`.
-- Datos completados de setiembre: 20 sep `73.000`, 21 sep `74.635`, 22 sep `76.270`, 23 sep `77.905`; el 24 sep real es `79.656`. El tramo 73 → 79.656 se repartió para no crear un pico falso.
+- No hay semilla local: la app arranca con `readings: []` (`buildInitialState`). La hoja es la única fuente; IndexedDB es la caché de la última sync.
+- La hoja viva arranca el 2026-09-24 08:41 con `79.656`; no tiene los 4 días completados de setiembre.
+- La foto histórica de tests conserva esos días: 20 sep `73.000`, 21 sep `74.635`, 22 sep `76.270`, 23 sep `77.905`; el 24 sep es `79.656`. El tramo 73 → 79.656 se repartió para no crear un pico falso.
 - Deduplicación por `fecha|medicion`.
 - El parser tolera columnas extra de CSV viejos; la exportación es atómica.
 - No hay importación desde la UI ni escritura en la hoja.
@@ -183,8 +188,8 @@ días_restantes = (fin_del_ciclo - última_medición) / 24
 
 ## Archivos
 
-- Implementación: `src/lib/domain/*.ts` (anomalies, backup, billing, constants, csv, cycles, dates, format, gaps, periods, projections, readings, seed, stats, tariffs, types) y `src/lib/state/sheetSync.svelte.ts`.
-- Tests: `src/lib/domain/*.test.ts` (78 casos).
-- Semilla: `src/data.csv`, importado con `?raw`.
+- Implementación: `src/lib/domain/*.ts` (anomalies, backup, billing, constants, csv, cycles, dates, format, gaps, initialState, periods, projections, readings, stats, tariffs, types) y `src/lib/state/sheetSync.svelte.ts`.
+- Tests: `src/lib/domain/*.test.ts` (82 casos), con la foto histórica de la ex semilla en `src/lib/domain/__fixtures__/mediciones.ts`.
+- Estado inicial: `src/lib/domain/initialState.ts` (`buildInitialState()` con `readings: []`).
 - Documentación de usuario: `instructions.md` (manual del repo; no se renderiza dentro de la app).
 - UI: una sola página en `src/routes/Medidor.svelte` + `SettingsDialog`.

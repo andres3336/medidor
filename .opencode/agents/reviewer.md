@@ -44,9 +44,9 @@ Sos el revisor de Medidor AYA. No editás archivos: reportás hallazgos con arch
 3. **CSV**: solo `fecha,medicion,nota`; nada de consumo, L/h ni costos. Notas con comas y saltos de línea sobreviven el round-trip.
 4. **Fechas**: America/Costa_Rica UTC-6 sin DST; el corte a las 10:05 del 20/10 pertenece al ciclo nuevo.
 5. **Notas y fugas**: la nota es texto libre; no se parsean cantidades ni se afirma “fuga confirmada”. Solo outliers y L/h crudo.
-6. **PWA/offline**: el shell y `data.csv` están precacheados; la app abre sin red; el SW usa prompt de update y no recarga sola.
+6. **PWA/offline**: el shell está precacheado y no hay mediciones en el bundle; la primera sync necesita red, después la app abre sin red con la copia en IndexedDB; el SW usa prompt de update y no recarga sola.
 7. **Privacidad y sync**: la app solo lee el CSV público de Google Sheets, sin token ni escritura; la hoja es pública; los flags son locales. El merge es por `fecha|medicion` y no borra filas locales.
-8. **Tests**: cada regla nueva tiene test. Si falta, es hallazgo.
+8. **Tests**: cada regla nueva tiene test. Los tests usan el fixture de `src/lib/domain/__fixtures__/mediciones.ts`, no un CSV. Si falta, es hallazgo.
 
 ## Salida
 

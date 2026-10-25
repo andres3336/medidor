@@ -1,5 +1,5 @@
 import type { AppState, Reading } from '../domain/types'
-import { buildInitialState } from '../domain/seed'
+import { buildInitialState } from '../domain/initialState'
 import { serializeReadingsCsv } from '../domain/csv'
 import { sortReadings } from '../domain/readings'
 import { nowIso } from '../domain/dates'

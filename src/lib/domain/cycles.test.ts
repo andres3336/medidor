@@ -8,11 +8,11 @@ import {
   nextPeriodStart,
   periodStartFor,
 } from './cycles'
-import { seedReadings } from './seed'
+import { fixtureReadings } from './__fixtures__/mediciones'
 import { dayKey } from './dates'
 import type { Reading } from './types'
 
-const readings = seedReadings()
+const readings = fixtureReadings()
 const now = new Date('2026-10-24T12:00:00-06:00')
 
 describe('ciclos 20 → 20', () => {

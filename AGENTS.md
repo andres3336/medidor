@@ -19,27 +19,27 @@ App personal de una sola persona para leer la medición del medidor y el consumo
 ```sh
 bun run dev          # desarrollo
 bun run check        # svelte-check + tsc
-bun run test         # 78 tests del dominio
+bun run test         # 82 tests del dominio
 bun run build        # dist + sw.js
 bun run preview      # probar PWA real
 bun run lint
 bun run format
 ```
 
-Definición de terminado: `check`, `test` y `build` en verde; sin errores nuevos de consola; la PWA sigue precacheando el shell y abre sin red.
+Definición de terminado: `check`, `test` y `build` en verde; sin errores nuevos de consola; la PWA sigue precacheando el shell y abre sin red después de la primera sync.
 
 ## Invariantes (no negociables)
 
-1. La hoja de Google Sheets y `data.csv` solo tienen `fecha,medicion,nota`. Nada de columnas derivadas.
+1. La hoja de Google Sheets solo tiene `fecha,medicion,nota`. Nada de columnas derivadas.
 2. El IVA se aplica a **todo el acueducto** cuando el consumo facturable > 30 m³.
 3. Las lecturas se truncan con `floor` antes de restar; el dinero se redondea hacia arriba solo al mostrar.
 4. Los ciclos se derivan 20 → 20. La base es la última medición **anterior** al día 20 a las 00:00; en el primer ciclo se usa la primera medición del ciclo. No hay cierre manual, base editable ni ajustes auditados.
 5. Los derivados (consumo, L/h, mediana, factura, proyecciones, outliers) se calculan en memoria.
 6. No hay gist ni token. La hoja publicada es de **solo lectura**: la PWA no la escribe. Un PAT nunca vive en el repo, el estado, IndexedDB, `localStorage`, el CSV ni los logs.
 7. Fechas en `America/Costa_Rica` (UTC-6, sin DST).
-8. La app debe abrir y operar sin red con la copia en IndexedDB y la semilla `src/data.csv`. No hay cuenta. El sync es un `fetch` del CSV público; si falla, se sigue local.
+8. La hoja publicada es la única fuente de mediciones; la app arranca con `readings: []`. IndexedDB es la caché de la última sync: la primera carga necesita red una vez y después la app abre sin red. No hay semilla ni datos de fábrica. No hay cuenta. El sync es un `fetch` del CSV público; si falla, se sigue con la copia local.
 9. Lenguaje es-CR, aproximado: “posible fuga”, “≈”, “normal/raro”. Nada de falsa precisión.
-10. Cada regla de dominio nueva lleva test con un caso real de `data.csv` o de la tabla del planning.
+10. Cada regla de dominio nueva lleva test con un caso real de la hoja o de la foto histórica en `src/lib/domain/__fixtures__/mediciones.ts`, o de la tabla del planning.
 11. Una sola página (`src/routes/Medidor.svelte`) y un diálogo de Configuración. No hay router, bottom nav ni pantallas viejas.
 12. No reintroduzcas gist, import/export JSON, backup, reset, cierre manual, parseo de notas ni filtros de tags/flags sin actualizar el plan, el skill y los tests.
 13. No hay alta ni edición dentro de la app: la tabla es de solo lectura. El alta y la corrección se hacen en Google Sheets. El favorito (`flag`) es local y no viaja a la hoja.
@@ -49,11 +49,10 @@ Definición de terminado: `check`, `test` y `build` en verde; sin errores nuevos
 
 - `src/App.svelte`: shell, cabecera, tema, badge offline, sync inicial y diálogo de Configuración.
 - `src/routes/Medidor.svelte`: única página; ordena ciclo, gráficas y tabla.
-- `src/lib/domain/`: lógica pura, sin Svelte ni DOM. Es la parte más testeada.
+- `src/lib/domain/`: lógica pura, sin Svelte ni DOM. Es la parte más testeada. `initialState.ts` devuelve el estado vacío; `__fixtures__/mediciones.ts` es una foto histórica de la ex semilla, solo para tests (no se importa desde la app).
 - `src/lib/state/`: IndexedDB, store con runes, sync de la hoja (`sheetSync.svelte.ts`), derivados y toasts. Puede usar Svelte.
 - `src/lib/components/`: UI reutilizable (ciclo, tabla, diálogos, iconos, swipe).
 - `src/lib/charts/`: Chart.js y tema.
-- `src/data.csv`: semilla y respaldo sin red; se importa con `?raw`.
 - `instructions.md`: manual de usuario del repo; **no** se renderiza dentro de la app.
 - `src/lib/domain/backup.ts`: normaliza el estado guardado; no es una función de backup visible.
 - Tests: `src/lib/domain/*.test.ts`.

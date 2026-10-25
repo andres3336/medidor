@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { buildProjection } from './projections'
 import { buildDailySeries, makeReading } from './readings'
-import { seedReadings } from './seed'
+import { fixtureReadings } from './__fixtures__/mediciones'
 import { defaultTariffs } from './tariffs'
 import { buildCycles, currentCycle } from './cycles'
 import type { Cycle } from './types'
 
 const now = new Date('2026-10-24T12:00:00-06:00')
-const readings = seedReadings()
+const readings = fixtureReadings()
 const cycle = currentCycle(buildCycles(readings, now), now)!
 const days = buildDailySeries(readings)
 const tariffs = defaultTariffs()

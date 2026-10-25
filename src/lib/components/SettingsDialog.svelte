@@ -35,8 +35,8 @@
   }
 
   function download() {
-    downloadFile('data.csv', exportCsv(), 'text/csv;charset=utf-8')
-    showToast('data.csv descargado')
+    downloadFile('medidor.csv', exportCsv(), 'text/csv;charset=utf-8')
+    showToast('CSV descargado')
   }
 </script>
 
@@ -122,6 +122,7 @@
   <div class="settings-section">
     <h3 class="settings-heading">Datos</h3>
     <p class="small muted">Fuente: Google Sheets, solo lectura. La app no modifica la hoja.</p>
+    <p class="tiny muted">La copia de la hoja vive en este dispositivo y se usa sin red.</p>
     <div class="row row-wrap">
       <button
         class="btn btn-sm"
@@ -131,8 +132,8 @@
         <Icon name="refresh" size={15} />
         {sheetSync.status === 'syncing' ? 'Sincronizando…' : 'Sincronizar hoja'}
       </button>
-      <button class="btn btn-sm" onclick={download}>
-        <Icon name="download" size={15} /> Descargar data.csv
+      <button class="btn btn-sm" onclick={download} disabled={analytics.readings.length === 0}>
+        <Icon name="download" size={15} /> Descargar CSV
       </button>
     </div>
     {#if sheetSync.status === 'ok'}
