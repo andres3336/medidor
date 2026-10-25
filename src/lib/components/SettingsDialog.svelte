@@ -1,6 +1,6 @@
 <script lang="ts">
   import { exportCsv } from '../state/store.svelte'
-  import { sheetSync, syncSheetCsv } from '../state/sheetSync.svelte'
+  import { sheetSync } from '../state/sheetSync.svelte'
   import { showToast } from '../state/toast.svelte'
   import { downloadFile } from '../download'
   import { theme, setTheme } from '../theme.svelte'
@@ -122,16 +122,11 @@
   <div class="settings-section">
     <h3 class="settings-heading">Datos</h3>
     <p class="small muted">Fuente: Google Sheets, solo lectura. La app no modifica la hoja.</p>
-    <p class="tiny muted">La copia de la hoja vive en este dispositivo y se usa sin red.</p>
+    <p class="tiny muted">
+      La copia de la hoja vive en este dispositivo y se usa sin red. Para bajar cambios, usá el
+      ícono de actualizar de la cabecera.
+    </p>
     <div class="row row-wrap">
-      <button
-        class="btn btn-sm"
-        onclick={() => void syncSheetCsv()}
-        disabled={sheetSync.status === 'syncing'}
-      >
-        <Icon name="refresh" size={15} />
-        {sheetSync.status === 'syncing' ? 'Sincronizando…' : 'Sincronizar hoja'}
-      </button>
       <button class="btn btn-sm" onclick={download} disabled={analytics.readings.length === 0}>
         <Icon name="download" size={15} /> Descargar CSV
       </button>

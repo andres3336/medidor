@@ -1,9 +1,15 @@
-export const toast = $state<{ message: string | null }>({ message: null })
+export type ToastKind = 'ok' | 'error'
+
+export const toast = $state<{ message: string | null; kind: ToastKind }>({
+  message: null,
+  kind: 'ok',
+})
 
 let timer: ReturnType<typeof setTimeout> | null = null
 
-export function showToast(message: string, ms = 2800) {
+export function showToast(message: string, ms = 2800, kind: ToastKind = 'ok') {
   toast.message = message
+  toast.kind = kind
   if (timer) clearTimeout(timer)
   timer = setTimeout(() => {
     toast.message = null

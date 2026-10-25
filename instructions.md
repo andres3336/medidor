@@ -10,7 +10,7 @@ Tiene una sola pantalla. De arriba hacia abajo encontrás:
 2. **Gráficas**
 3. **Mediciones** (tabla cruda)
 
-El engranaje de la esquina superior derecha abre **Configuración**. No hay otras pantallas ni menú inferior.
+En la cabecera hay tres botones a la derecha: el **sol/luna** cambia entre tema claro y oscuro, la **flecha circular** vuelve a bajar la hoja de Google Sheets y el **engranaje** abre **Configuración**. No hay otras pantallas ni menú inferior.
 
 La app **no trae mediciones de fábrica**. En una instalación nueva la pantalla muestra **Todavía no hay mediciones** con el estado del sync y el botón **Sincronizar hoja**. Hasta que sincronices una vez, no se muestran las tarjetas de ciclo, las gráficas ni la tabla.
 
@@ -35,7 +35,7 @@ La app **no agrega ni edita** mediciones. El alta y la corrección se hacen en l
    - `medicion`: el número del medidor, por ejemplo `103.910`.
    - `nota`: texto libre, por ejemplo “medicion diaria”.
 3. Guardá la hoja.
-4. En la app, abrí **Configuración** y tocá **Sincronizar hoja**. También se sincroniza sola al abrir, al volver a la pestaña y al recuperar red.
+4. En la app, tocá la **flecha circular** de la cabecera. También se sincroniza sola al abrir, al volver a la pestaña y al recuperar red.
 
 La app mezcla por `fecha|medicion`:
 
@@ -68,7 +68,7 @@ La tarjeta del ciclo muestra:
 - **Ciclo actual** en la cabecera. No muestra el `YYYY-MM` ni el rango de fechas.
 - El promedio diario desde el inicio del ciclo hasta hoy, por ejemplo `0.83 m³/día`, en la esquina.
 - **CONSUMO** en m³ exactos y la proyección `≈ 22 m³ al cierre`.
-- **LECTURA ANT** con la última medición y el promedio diario del ciclo anterior, por ejemplo `≈ 0.69 m³/día`. Si no hay medición de hoy, aparece **“FALTA la de hoy”**.
+- **LECTURA ANT** con la última medición y el promedio diario del ciclo anterior, por ejemplo `≈ 0.91 m³/día`. Si no hay medición de hoy, aparece **“FALTA la de hoy”**.
 - **FACTURA APROX.** con `≈ ₡5,819`; es una estimación para presupuestar, no el recibo de AYA.
 - Barra de 0 a 60 m³ con ticks cada 5 m³: `Bloque1` verde (0–15), `Bloque2` amarillo (15–30) y `Bloque3` rojo (30–60).
 - Relleno del color del bloque actual, marcador de la posición actual y marca punteada de la proyección al cierre.
@@ -130,7 +130,7 @@ El engranaje abre un diálogo con:
 
 - **Ciclo:** día de corte 20 fijo, ciclo actual (solo `YYYY-MM`), base del ciclo y lectura anterior. Es solo lectura; la ventana avanza sola.
 - **Tarifas ARESEP:** tabla combinada de solo lectura, cargo fijo e IVA.
-- **Datos:** fuente Google Sheets, botón **Sincronizar hoja**, estado del último sync, aviso de filas locales fuera de la hoja y **Descargar CSV**. La copia de la hoja vive en el dispositivo y se usa sin red.
+- **Datos:** fuente Google Sheets, estado del último sync, aviso de filas locales fuera de la hoja y **Descargar CSV**. La copia de la hoja vive en el dispositivo y se usa sin red. Para bajar cambios, usá la flecha circular de la cabecera.
 - **Tema:** automático, claro u oscuro.
 - **Acerca de:** versión, datos locales y aviso de que la app no escribe la hoja ni usa cuenta o token.
 
@@ -170,12 +170,12 @@ fecha,medicion,nota
 ```
 
 - Consumo, litros, L/h, facturas y proyecciones **no** se guardan: se recalculan.
-- La app lee la hoja al abrir, al volver a la pestaña y al recuperar red, con `cache: 'no-store'`.
+- La app lee la hoja al abrir, al volver a la pestaña, al recuperar red y al tocar la flecha circular de la cabecera.
 - El merge es por `fecha|medicion`: la hoja manda en valor y nota; los favoritos locales se conservan.
 - Las filas locales que no estén en la hoja se mantienen y se avisan; no se borran.
 - **La app no trae datos de fábrica.** La primera vez necesita red para bajar la hoja; después guarda la copia en el dispositivo y funciona sin red.
 - Las lecturas de la hoja al 24-OCT llegan hasta 23-OCT 21:23 `103.643` (extra) y 24-OCT 09:17 `103.910` (diaria); son los ejemplos de este manual.
-- La hoja arranca el 24-SEP de 2026 con `79.656`. No hay mediciones antes, así que el ciclo 2026-09 usa esa primera lectura como base.
+- La hoja arranca el 20-SEP de 2026 a las 08:40 con `73.000`, sigue con `74.780`, `76.350` y `77.950` (marcadas como `medicion simulada`) y el 24-SEP real es `79.656`. Por eso el ciclo 2026-09 tiene lectura desde el día 1.
 - La hoja puede venir en `MM/DD/YYYY hh:mm AM/PM` o en ISO 8601. **Descargar CSV** genera `medidor.csv` en ISO con offset `-06:00` desde la copia en memoria. Sin mediciones, el botón está desactivado.
 - La app **no escribe** la hoja ni importa CSV o JSON desde la interfaz. La descarga sirve para el repo o para pegar los datos en un chat.
 

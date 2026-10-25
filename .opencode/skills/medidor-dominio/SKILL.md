@@ -165,11 +165,12 @@ días_restantes = (fin_del_ciclo - última_medición) / 24
 - `AppState` schema 2 = `{ schema, updatedAt, readings }`. Solo se persisten mediciones.
 - `ReadingSource` es `'sheet' | 'app'`. `parseReadingsCsv()` marca las filas de la hoja con `source: 'sheet'`. `normalizeAppState()` acepta estados viejos con `'data.csv'` y los migra a `'sheet'`.
 - `tags` y `flag` existen en `Reading`; la UI solo marca el favorito. `deleted` es un tombstone heredado; la UI no borra.
-- **Sync con Google Sheets:** `src/lib/state/sheetSync.svelte.ts` hace `fetch` del CSV publicado (`cache: 'no-store'`, timeout de 8 s) al arrancar, al volver a la pestaña (`visibilitychange`) y al recuperar red (`online`).
+- **Sync con Google Sheets:** `src/lib/state/sheetSync.svelte.ts` hace `fetch` del CSV publicado (`cache: 'no-store'`, timeout de 8 s y un parámetro `t` por intento para saltar el caché del CDN) al arrancar, al volver a la pestaña (`visibilitychange`), al recuperar red (`online`) y al tocar el refresh de la cabecera. La sync manual avisa con un toast "Hoja al día" si no hubo cambios y con el error si falló.
+- La cabecera tiene tema claro/oscuro, refresh y Configuración. La sección Datos de Configuración ya no sincroniza: solo informa el estado, la última sync y el aviso de filas locales.
 - **Merge** (`mergeSheetReadings`): clave `fecha|medicion`. La hoja manda en valor y nota; `flag` y `tags` locales se conservan. Las filas locales que no están en la hoja no se borran: se cuentan en `localOnly` y se avisan en Configuración.
 - No hay semilla local: la app arranca con `readings: []` (`buildInitialState`). La hoja es la única fuente; IndexedDB es la caché de la última sync.
-- La hoja viva arranca el 2026-09-24 08:41 con `79.656`; no tiene los 4 días completados de setiembre.
-- La foto histórica de tests conserva esos días: 20 sep `73.000`, 21 sep `74.635`, 22 sep `76.270`, 23 sep `77.905`; el 24 sep es `79.656`. El tramo 73 → 79.656 se repartió para no crear un pico falso.
+- La hoja viva arranca el 2026-09-20 08:40 con `73.000` y sigue con `74.780`, `76.350` y `77.950`, marcadas como `medicion simulada`; el 24 sep es `79.656`.
+- La foto histórica de tests conserva los valores viejos de esos días: 20 sep `73.000`, 21 sep `74.635`, 22 sep `76.270`, 23 sep `77.905`. La hoja y el fixture no coinciden en esos tres decimales, y no hace falta que coincidan: el fixture es una foto congelada, no la hoja viva.
 - Deduplicación por `fecha|medicion`.
 - El parser tolera columnas extra de CSV viejos; la exportación es atómica.
 - No hay importación desde la UI ni escritura en la hoja.

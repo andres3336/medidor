@@ -6,11 +6,19 @@
   import Icon from '$lib/components/Icon.svelte'
   import UpdatePrompt from '$lib/components/UpdatePrompt.svelte'
   import SettingsDialog from '$lib/components/SettingsDialog.svelte'
-  import { initSheetSync, syncSheetCsv } from '$lib/state/sheetSync.svelte'
+  import { initSheetSync, sheetSync, syncSheetCsv } from '$lib/state/sheetSync.svelte'
+  import { cycleTheme, theme } from '$lib/theme.svelte'
   import Medidor from './routes/Medidor.svelte'
 
   let settingsOpen = $state(false)
   const analytics = $derived(deriveAnalytics(app.state))
+  const syncing = $derived(sheetSync.status === 'syncing')
+  const syncLabel = $derived(
+    syncing ? 'Sincronizando…' : pwa.offline ? 'Sin conexión' : 'Sincronizar hoja',
+  )
+  const themeLabel = $derived(
+    theme.resolved === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro',
+  )
 
   onMount(() => {
     initPwa()
@@ -35,9 +43,31 @@
     <div class="topbar-actions">
       {#if pwa.offline}
         <span class="badge badge-neutral" title="Sin conexión: tus datos están en el teléfono">
-          <Icon name="wifiOff" size={13} /> offline
+          <Icon name="wifiOff" size={13} />
+          <span class="offline-label">offline</span>
         </span>
       {/if}
+      <button
+        class="btn btn-icon"
+        type="button"
+        onclick={cycleTheme}
+        aria-label={themeLabel}
+        title={themeLabel}
+      >
+        <Icon name={theme.resolved === 'dark' ? 'sun' : 'moon'} size={18} />
+      </button>
+      <button
+        class="btn btn-icon"
+        type="button"
+        onclick={() => void syncSheetCsv(true)}
+        aria-label={syncLabel}
+        title={syncLabel}
+        disabled={!app.ready || syncing || pwa.offline}
+      >
+        <span class="icon-spin" class:spinning={syncing}>
+          <Icon name="refresh" size={18} />
+        </span>
+      </button>
       <button
         class="btn btn-icon"
         type="button"

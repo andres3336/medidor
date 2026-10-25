@@ -34,7 +34,7 @@
 
 - La fuente única es el **CSV publicado de Google Sheets** (`pub?output=csv`), de solo lectura. CORS es `*`, así que la PWA hace `fetch` directo sin proxy ni token.
 - La hoja solo guarda `fecha,medicion,nota`; consumo, Δ, factura y proyecciones se calculan en la PWA.
-- El sync corre al arrancar, al volver a la pestaña y al recuperar red, con `cache: 'no-store'`.
+- El sync corre al arrancar, al volver a la pestaña, al recuperar red y al tocar el refresh de la cabecera. Usa `cache: 'no-store'` y un parámetro `t` por intento: Google cachea el CSV publicado varios minutos y sin eso el refresh devolvía datos viejos.
 - `mergeSheetReadings` une por `fecha|medicion`: la hoja manda en valor y nota; `flag` y `tags` locales se conservan; las filas locales fuera de la hoja se avisan y no se borran.
 - No hay semilla local: la app arranca vacía y la hoja es la única fuente. No se escribe la hoja desde la app: el alta y la corrección se hacen en Google Sheets.
 - La hoja publicada es pública: las notas con nombres quedan visibles para quien tenga el link.
@@ -52,7 +52,7 @@
 ## Foto histórica de la ex semilla (solo tests)
 
 - `src/lib/domain/__fixtures__/mediciones.ts`: 66 filas, 2026-09-20 07:00 → 2026-10-24 09:07. Es una foto congelada de la ex semilla para tests; la app no la importa.
-- Conserva los días completados 20, 21, 22 y 23 de setiembre: `73.000`, `74.635`, `76.270`, `77.905`; el 24 real es `79.656`. La hoja viva arranca en el 24.
+- Conserva los días completados 20, 21, 22 y 23 de setiembre: `73.000`, `74.635`, `76.270`, `77.905`; el 24 real es `79.656`. La hoja viva ya tiene esos días con `medicion simulada` y valores algo distintos (`74.780`, `76.350`, `77.950`).
 - Conserva dos horas viejas que la hoja ya corrigió: 20-OCT 10:05 (hoy 08:05) y 24-OCT 09:07 (hoy 09:17).
 - Ciclo 2026-09: base `73.000`, 58 mediciones, última `100.156`.
 - Ciclo 2026-10: base `100.156` (19 oct 21:50), 8 mediciones, última `103.910`.
