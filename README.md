@@ -5,9 +5,9 @@ App personal, offline-first e instalable como PWA para **leer la medición del m
 ## Qué es y qué no es
 
 - **Una sola página.** De arriba hacia abajo están el ciclo, las gráficas y la tabla cruda. No hay botón de agregar ni de editar.
-- **La hoja es la única fuente.** La app lee el CSV publicado de Google Sheets al abrir, al volver a la pestaña y al recuperar red. La hoja solo tiene `fecha,medicion,nota`; el consumo, los litros, la factura y las proyecciones se calculan en la PWA. Si no hay mediciones, la pantalla muestra **Todavía no hay mediciones** y el botón **Sincronizar hoja**.
+- **La hoja es la única fuente.** La app lee el CSV publicado de Google Sheets al abrir, al volver a la pestaña, al recuperar red o al tocar la flecha circular de la cabecera. La hoja solo tiene `fecha,medicion,nota`; el consumo, los litros, la factura y las proyecciones se calculan en la PWA. Si no hay mediciones, la pantalla muestra **Todavía no hay mediciones** y el botón **Sincronizar hoja**.
 - **Solo lectura.** No hay alta ni edición dentro de la app. Para corregir o agregar una medición, editá la hoja y sincronizá.
-- **Configuración en un diálogo.** Se abre con el engranaje de la cabecera. Incluye el estado del sync, el botón **Sincronizar hoja** y **Descargar CSV**.
+- **Configuración en un diálogo.** Se abre con el engranaje de la cabecera. Incluye el estado del sync y **Descargar CSV**. El refresh y el cambio de tema están en la cabecera.
 - **Sin datos de fábrica.** La hoja es la única fuente. La primera sincronización necesita red una vez; después la app abre sin red con la última copia guardada. No hay cuenta, gist ni token.
 - **PWA.** Se instala desde el navegador, abre sin red después de la primera sync y avisa cuando hay una versión nueva.
 - **La factura es una estimación.** Se calcula con tarifas ARESEP de solo lectura; el recibo de AYA manda.
@@ -72,7 +72,7 @@ AGENTS.md                 convenciones para agentes
 - Una sola ruta: `start_url` y `scope` son `./`; no hay hash routing.
 - El service worker precachea el shell (`js`, `css`, `html`, iconos). La app no incluye mediciones en el bundle: el primer arranque sin red muestra el estado vacío hasta que sincronices una vez.
 - IndexedDB guarda la copia local de las mediciones; si el navegador no la permite, se usa un respaldo en `localStorage`.
-- Al abrir, al volver a la pestaña y al recuperar red, la app intenta leer la hoja publicada. Si falla o no hay red, sigue con la copia local; si nunca sincronizó, no hay datos que mostrar.
+- Al abrir, al volver a la pestaña, al recuperar red o al tocar el refresh de la cabecera, la app intenta leer la hoja publicada. Si falla o no hay red, sigue con la copia local; si nunca sincronizó, no hay datos que mostrar.
 - El service worker usa `registerType: 'prompt'`: la app no recarga sola. Cuando hay una versión nueva, aparece **Actualizar / Después**.
 - No hay banner de instalación. Para instalar, usá el menú del navegador; en iOS, Compartir → Agregar a pantalla de inicio.
 

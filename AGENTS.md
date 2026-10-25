@@ -47,7 +47,7 @@ Definición de terminado: `check`, `test` y `build` en verde; sin errores nuevos
 
 ## Estructura
 
-- `src/App.svelte`: shell, cabecera, tema, badge offline, sync inicial y diálogo de Configuración.
+- `src/App.svelte`: shell, cabecera con refresh y tema, badge offline, sync inicial y diálogo de Configuración.
 - `src/routes/Medidor.svelte`: única página; ordena ciclo, gráficas y tabla.
 - `src/lib/domain/`: lógica pura, sin Svelte ni DOM. Es la parte más testeada. `initialState.ts` devuelve el estado vacío; `__fixtures__/mediciones.ts` es una foto histórica de la ex semilla, solo para tests (no se importa desde la app).
 - `src/lib/state/`: IndexedDB, store con runes, sync de la hoja (`sheetSync.svelte.ts`), derivados y toasts. Puede usar Svelte.
