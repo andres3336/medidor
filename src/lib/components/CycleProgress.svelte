@@ -14,6 +14,11 @@
   const projectedPct = $derived(Math.min(100, (Math.max(0, Math.min(60, projectedM3)) / 60) * 100))
   const currentBlock = $derived(billable > 30 ? 3 : billable > 15 ? 2 : 1)
   const toThirty = $derived(billable <= 30 ? 30 - billable : null)
+  const averageDelta = $derived(
+    analytics.averageM3PerDay != null && analytics.previousCycleAverageM3PerDay != null
+      ? analytics.averageM3PerDay - analytics.previousCycleAverageM3PerDay
+      : null,
+  )
   const ticks = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]
   const progress = new Progress({
     value: () => Math.max(0, Math.min(60, billable)),
@@ -26,9 +31,6 @@
     <div>
       <h2 class="card-title" id="cycle-title">Ciclo actual</h2>
     </div>
-    <span class="badge badge-neutral" title="Promedio diario desde el inicio del ciclo hasta ahora">
-      {analytics.averageM3PerDay == null ? '—' : `${formatM3(analytics.averageM3PerDay, 2)} m³/día`}
-    </span>
   </div>
 
   {#if cycle.baseValue == null}
@@ -64,6 +66,27 @@
         <div class="metric-label">Factura aprox.</div>
         <div class="metric-value numeric">≈ {formatMoney(analytics.currentBill.displayTotal)}</div>
         <div class="tiny muted">Estimación, no el recibo</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Promedio</div>
+        <div class="metric-value numeric">
+          {analytics.averageM3PerDay == null
+            ? '—'
+            : `${formatM3(analytics.averageM3PerDay, 2)} m³/día`}
+        </div>
+        {#if analytics.previousCycleAverageM3PerDay == null}
+          <div class="tiny muted">Sin ciclo anterior para comparar.</div>
+        {:else}
+          <div class="tiny muted">
+            Anterior {formatM3(analytics.previousCycleAverageM3PerDay, 2)}
+            {#if averageDelta != null}
+              ·
+              <span class={averageDelta > 0 ? 'text-warn' : averageDelta < 0 ? 'text-ok' : 'muted'}>
+                {averageDelta > 0 ? '+' : ''}{formatM3(averageDelta, 2)} m³/día
+              </span>
+            {/if}
+          </div>
+        {/if}
       </div>
     </div>
 

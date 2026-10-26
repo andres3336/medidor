@@ -66,10 +66,10 @@ Las fechas se muestran siempre en **DD-MMM** mayúscula: `20-OCT`, `24-SEP`, `20
 La tarjeta del ciclo muestra:
 
 - **Ciclo actual** en la cabecera. No muestra el `YYYY-MM` ni el rango de fechas.
-- El promedio diario desde el inicio del ciclo hasta hoy, por ejemplo `0.83 m³/día`, en la esquina.
 - **CONSUMO** en m³ exactos y la proyección `≈ 22 m³ al cierre`.
 - **LECTURA ANT** con la última medición y el promedio diario del ciclo anterior, por ejemplo `≈ 0.91 m³/día`. Si no hay medición de hoy, aparece **“FALTA la de hoy”**.
 - **FACTURA APROX.** con `≈ ₡5,819`; es una estimación para presupuestar, no el recibo de AYA.
+- **PROMEDIO** con el promedio diario actual (`0.83 m³/día`) y, debajo, el del ciclo anterior y la diferencia (`Anterior 0.91 · -0.07 m³/día`). Si bajó se muestra en verde; si subió, en ámbar.
 - Barra de 0 a 60 m³ con ticks cada 5 m³: `Bloque1` verde (0–15), `Bloque2` amarillo (15–30) y `Bloque3` rojo (30–60).
 - Relleno del color del bloque actual, marcador de la posición actual y marca punteada de la proyección al cierre.
 - Solo aparece un aviso de IVA si estás a 3 m³ o menos de los 30, o si ya los pasaste. No hay resumen de base ni texto de proyección debajo de la barra.
@@ -113,14 +113,16 @@ La tabla solo muestra el icono de advertencia; no crea tarjetas de fuga ni anali
 
 ## Gráficas
 
-Hay dos gráficas, una al lado de la otra en desktop. No hay pills ni filtro de periodo: siempre comparan el ciclo actual contra el anterior.
+Hay dos gráficas, una debajo de la otra: primero **Consumo** y después **Facturación**, a todo el ancho. No hay pills ni filtro de periodo: siempre comparan el ciclo actual contra el anterior.
 
-1. **Consumo:** m³ acumulados por **día del ciclo** (`día 1`, `día 5`, …). Línea actual azul y gruesa con área rellena en azul suave, anterior gris clara y fina, proyección actual punteada. Chip con el total acumulado (`3.754 m³ actual`).
-2. **Facturación:** mide **tarifa estimada**, no consumo. Eje Y en ₡ acumulados por día del ciclo, con la misma estructura que Consumo. La factura usa base, `floor`, bloques ARESEP, cargo fijo e IVA. El chip muestra `₡5,819 actual`.
+1. **Consumo:** barras verticales agrupadas por **día del ciclo**. El **día 1 es el 20 de cada mes** y se muestran 32 días (`día 1` a `día 32`); el día 32 queda vacío porque es el corte del ciclo siguiente. La barra gris es el periodo anterior y la azul el actual. Solo se grafican mediciones reales, sin proyección; los días sin medición quedan en blanco. Chip con el total acumulado (`3.754 m³ actual`).
+2. **Facturación:** mide **tarifa estimada**, no consumo. Eje Y en ₡ acumulados por día del ciclo. La factura usa base, `floor`, bloques ARESEP, cargo fijo e IVA. El chip muestra `₡5,819 actual`.
 
-En las dos gráficas, un **punto** marca el día en que cada periodo alcanza un bloque tarifario nuevo: 15, 30 y 60 m³ facturables. El punto usa el color del periodo y el tooltip dice `Bloque N · 15 m³`. Si el ciclo no llega al bloque, no hay punto. La leyenda lo llama **cambio de bloque**.
+Consumo y Facturación tienen la misma altura de gráfico; el resto de la pantalla no cambia.
 
-Los periodos con 30, 31 o 28 días se alinean por día de ciclo hasta el máximo; es una comparación estimada. La tabla queda debajo, a todo el ancho.
+En **Facturación**, un **punto** marca el día en que cada periodo alcanza un bloque tarifario nuevo: 15, 30 y 60 m³ facturables. El punto usa el color del periodo y el tooltip dice `Bloque N · 15 m³`. Si el ciclo no llega al bloque, no hay punto. La leyenda lo llama **cambio de bloque**.
+
+Consumo alinea día con día y deja en blanco lo que no tiene medición. Facturación alinea los periodos acumulados hasta el máximo; es una comparación estimada. La tabla queda debajo, a todo el ancho.
 
 La tabla sigue mostrando L/h entre mediciones, pero los gráficos ya no usan L/h ni flujo basal.
 

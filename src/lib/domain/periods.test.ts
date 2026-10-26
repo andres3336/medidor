@@ -8,6 +8,7 @@ import {
   buildBillComparison,
   buildBillSeries,
   buildCycleSeries,
+  buildDailyComparison,
   buildDailyCycle,
   findBlockMilestones,
   trafficBand,
@@ -80,6 +81,49 @@ describe('comparación de factura estimada', () => {
     expect(comparison.previous?.cycle.id).toBe('2026-09')
     expect(comparison.previous?.totalAmount).toBe(37559)
     expect(comparison.current.totalAmount).toBe(5819)
+  })
+})
+
+describe('comparación día a día', () => {
+  it('arma 32 días y alinea día con día', () => {
+    const comparison = buildDailyComparison(cycle, cycles[0], days)
+    expect(comparison.maxDay).toBe(32)
+    expect(comparison.days).toHaveLength(32)
+    expect(comparison.days.map((point) => point.dayNumber)).toEqual(
+      Array.from({ length: 32 }, (_, index) => index + 1),
+    )
+    expect(comparison.days[0]).toMatchObject({
+      dayNumber: 1,
+      previousM3: null,
+      currentM3: 0.249,
+    })
+    expect(comparison.days[1]).toMatchObject({
+      dayNumber: 2,
+      previousM3: 1.635,
+      currentM3: 0.846,
+    })
+    expect(comparison.days[31]).toMatchObject({
+      dayNumber: 32,
+      previousM3: null,
+      currentM3: null,
+      previousAt: null,
+      currentAt: null,
+    })
+  })
+
+  it('deja en blanco los días sin medición y no proyecta', () => {
+    const comparison = buildDailyComparison(cycle, cycles[0], days)
+    expect(comparison.days[5]).toMatchObject({
+      dayNumber: 6,
+      previousM3: 0.487,
+      currentM3: null,
+    })
+    expect(comparison.days[30]).toMatchObject({
+      dayNumber: 31,
+      previousM3: null,
+      currentM3: null,
+    })
+    expect(comparison.days[29].currentM3).toBeNull()
   })
 })
 

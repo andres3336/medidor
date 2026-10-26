@@ -46,7 +46,7 @@ description: Voz, estructura y mapa de documentación del Medidor AYA en españo
 
 ## instructions.md mínimo
 
-Qué es, pantalla única, estado vacío y primera sync, cómo agregar o corregir en Google Sheets y sincronizar, ciclo 20 → 20 y base derivada, barra de bloques, proyección de 7 días, tabla cruda de solo lectura, outliers por ciclo, dos gráficas, Configuración, CSV, offline/PWA, privacidad, glosario y limitaciones.
+Qué es, pantalla única, estado vacío y primera sync, cómo agregar o corregir en Google Sheets y sincronizar, ciclo 20 → 20 y base derivada, barra de bloques, proyección de 7 días, tabla cruda de solo lectura, outliers por ciclo, gráfica de consumo por día y facturación acumulada, Configuración, CSV, offline/PWA, privacidad, glosario y limitaciones.
 
 ## Accesibilidad del texto
 

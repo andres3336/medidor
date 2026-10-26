@@ -120,19 +120,20 @@ días_restantes = (fin_del_ciclo - última_medición) / 24
 - `Bloque1` verde: 0–15. `Bloque2` amarillo: 15–30. `Bloque3` rojo: 30–60. La leyenda va centrada y no muestra `60+`.
 - El relleno toma el color del bloque actual; hay marcador actual y marcador punteado de proyección.
 - Si el consumo supera 60, la barra queda al tope y el texto sigue mostrando el valor real.
-- La tarjeta muestra tres métricas: consumo exacto con proyección al cierre, lectura anterior con el promedio diario del ciclo anterior y factura aproximada (`≈ ₡…`, estimación, no el recibo).
-- Promedio diario del ciclo = `consumo_exacto / días_desde_el_corte_hasta_hoy` en m³/día. Se muestra en la cabecera de la tarjeta; no se usa en las gráficas.
+- La tarjeta muestra cuatro métricas: consumo exacto con proyección al cierre, lectura anterior con el promedio diario del ciclo anterior, factura aproximada (`≈ ₡…`, estimación, no el recibo) y promedio diario actual vs anterior con la diferencia (`averageM3PerDay - previousCycleAverageM3PerDay`).
+- Promedio diario del ciclo = `consumo_exacto / días_desde_el_corte_hasta_hoy` en m³/día. Se muestra en la métrica PROMEDIO de la tarjeta; no se usa en las gráficas.
 - No se usa L/h ni flujo basal en las gráficas.
 
 ## Gráficas
 
 - Dos gráficas, siempre actual vs último, sin filtro de periodo.
-- **Consumo:** m³ acumulados por día del ciclo (`día 1..N`). Línea anterior gris clara y fina, actual azul y gruesa con área rellena en azul suave, proyección actual punteada. Sin puntos salvo los hitos de bloque.
-- **Facturación:** ₡ estimados acumulados por día del ciclo, misma estructura que Consumo. No mide consumo: mide la tarifa estimada con base, `floor`, bloques ARESEP, cargo fijo e IVA.
-- **Hitos de bloque:** un punto por cada bloque tarifario nuevo que alcanza cada periodo (`15`, `30` y `60` m³ facturables). Sale de `findBlockMilestones` sobre la serie acumulada real, sin proyección: usa el primer punto que cruza el umbral y marca el día y el monto de ese punto. Si un punto cruza varios bloques, se marcan todos ahí. Si el ciclo no llega al bloque, no hay punto.
+- **Consumo:** barras verticales agrupadas por día del ciclo. Se muestran 32 días (`día 1..32`), con el día 1 = 20 del mes; el día 32 queda vacío porque es el corte siguiente. Barra anterior gris y actual azul. Solo mediciones reales: sin proyección y con días sin medición en `null` (barra vacía). Sin hitos de bloque.
+- `buildDailyComparison` alinea día N con día N, usa `buildDailyCycle` con la serie diaria normalizada (m³/día) y devuelve 32 días fijos. No proyecta.
+- **Facturación:** ₡ estimados acumulados por día del ciclo. No mide consumo: mide la tarifa estimada con base, `floor`, bloques ARESEP, cargo fijo e IVA. Mantiene la proyección punteada.
+- **Hitos de bloque:** un punto por cada bloque tarifario nuevo que alcanza cada periodo (`15`, `30` y `60` m³ facturables). Sale de `findBlockMilestones` sobre la serie acumulada real, sin proyección: usa el primer punto que cruza el umbral y marca el día y el monto de ese punto. Si un punto cruza varios bloques, se marcan todos ahí. Si el ciclo no llega al bloque, no hay punto. Solo se dibujan en Facturación.
 - Los hitos usan el color del periodo y se explican en la leyenda como “cambio de bloque”; el tooltip dice `Bloque N · 15 m³`.
 - `buildBillSeries` calcula la factura de cada punto con base, `floor`, bloques ARESEP, cargo fijo e IVA. `buildBillComparison` devuelve anterior/actual y la proyección.
-- Periodos de 28/30/31 días se alinean por día de ciclo hasta el máximo; es una comparación estimada.
+- Facturación alinea los periodos acumulados hasta el máximo; es una comparación estimada.
 
 ## Notas
 
@@ -192,7 +193,7 @@ días_restantes = (fin_del_ciclo - última_medición) / 24
 ## Archivos
 
 - Implementación: `src/lib/domain/*.ts` (anomalies, backup, billing, constants, csv, cycles, dates, format, gaps, initialState, periods, projections, readings, stats, tariffs, types) y `src/lib/state/sheetSync.svelte.ts`.
-- Tests: `src/lib/domain/*.test.ts` (86 casos), con la foto histórica de la ex semilla en `src/lib/domain/__fixtures__/mediciones.ts`.
+- Tests: `src/lib/domain/*.test.ts` (88 casos), con la foto histórica de la ex semilla en `src/lib/domain/__fixtures__/mediciones.ts`.
 - Estado inicial: `src/lib/domain/initialState.ts` (`buildInitialState()` con `readings: []`).
 - Documentación de usuario: `instructions.md` (manual del repo; no se renderiza dentro de la app).
 - UI: una sola página en `src/routes/Medidor.svelte` + `SettingsDialog`.

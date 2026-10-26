@@ -3,9 +3,15 @@
   import { app } from '../state/store.svelte'
   import { theme } from '../theme.svelte'
   import type { Analytics } from '../state/derive'
-  import { buildBillComparison, buildCycleSeries, findBlockMilestones } from '../domain/periods'
+  import {
+    buildBillComparison,
+    buildCycleSeries,
+    buildDailyComparison,
+    findBlockMilestones,
+  } from '../domain/periods'
   import type { BlockMilestone } from '../domain/periods'
   import { ARESEP_TARIFFS_2026_10_23 } from '../domain/tariffs'
+  import { formatDayMonth } from '../domain/dates'
   import { formatM3, formatMoney, formatNumber } from '../domain/format'
 
   type ChartInstance = { destroy: () => void }
@@ -27,6 +33,12 @@
     dataset: { label?: string; milestone?: boolean }
     parsed: { y: number }
     raw?: { block?: number; threshold?: number }
+  }
+  type BarTooltipItem = {
+    dataset: { label?: string }
+    datasetIndex: number
+    dataIndex: number
+    parsed: { y: number | null }
   }
 
   let { analytics }: { analytics: Analytics } = $props()
@@ -66,6 +78,9 @@
     currentSeries.points.length > 1 || (previousSeries?.points.length ?? 0) > 1,
   )
   const hasMilestones = $derived(currentMilestones.length + previousMilestones.length > 0)
+  const dailyComparison = $derived(
+    buildDailyComparison(analytics.cycle, previousCycle, analytics.days),
+  )
   const dayTicks = [1, 5, 10, 15, 20, 25, 30]
 
   onMount(async () => {
@@ -188,6 +203,101 @@
     }
   }
 
+  function renderDailyConsumptionChart(canvas: HTMLCanvasElement, colors: ChartTheme) {
+    if (!ChartCtor) return
+
+    const labels = dailyComparison.days.map((point) => `día ${point.dayNumber}`)
+    const currentDatasetIndex = previousCycle ? 1 : 0
+    const options = baseOptions(colors)
+    const datasets: unknown[] = []
+
+    if (previousCycle) {
+      datasets.push({
+        type: 'bar',
+        label: previousCycle.id,
+        data: dailyComparison.days.map((point) => point.previousM3),
+        backgroundColor: colors.previous,
+        borderWidth: 0,
+        borderRadius: 0,
+        barPercentage: 0.9,
+        categoryPercentage: 0.8,
+        maxBarThickness: 24,
+      })
+    }
+
+    datasets.push({
+      type: 'bar',
+      label: `${analytics.cycle.id} actual`,
+      data: dailyComparison.days.map((point) => point.currentM3),
+      backgroundColor: colors.current,
+      borderWidth: 0,
+      borderRadius: 0,
+      barPercentage: 0.9,
+      categoryPercentage: 0.8,
+      maxBarThickness: 24,
+    })
+
+    charts.push(
+      new ChartCtor(canvas, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+          ...options,
+          interaction: { mode: 'index' as const, intersect: false },
+          scales: {
+            x: {
+              type: 'category' as const,
+              offset: true,
+              ticks: {
+                color: colors.muted,
+                autoSkip: true,
+                maxTicksLimit: 8,
+                maxRotation: 0,
+                padding: 4,
+                font: { size: 10 },
+              },
+              grid: { display: false },
+              border: { display: false },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: colors.muted,
+                maxTicksLimit: 5,
+                padding: 4,
+                font: { size: 10 },
+                callback: (value: number) => formatNumber(value, 2),
+              },
+              grid: { color: colors.grid, drawTicks: false },
+              border: { display: false },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              ...options.plugins.tooltip,
+              filter: (item: BarTooltipItem) => item.parsed.y != null,
+              callbacks: {
+                title: (items: BarTooltipItem[]) => {
+                  const point = dailyComparison.days[items[0]?.dataIndex ?? 0]
+                  return `Día ${point?.dayNumber ?? 1}`
+                },
+                label: (item: BarTooltipItem) => {
+                  if (item.parsed.y == null) return ''
+                  const point = dailyComparison.days[item.dataIndex]
+                  const isCurrent = item.datasetIndex === currentDatasetIndex
+                  const at = isCurrent ? point?.currentAt : point?.previousAt
+                  const date = at ? ` · ${formatDayMonth(at)}` : ''
+                  return `${item.dataset.label ?? ''}${date}: ${formatM3(item.parsed.y)} m³/día`
+                },
+              },
+            },
+          },
+        },
+      }),
+    )
+  }
+
   function renderCharts() {
     if (!ChartCtor || !chartThemeFn) return
     if (!curveCanvas && !billCanvas) return
@@ -195,115 +305,7 @@
     const colors = chartThemeFn()
 
     if (curveCanvas && analytics.cycle.baseValue != null && hasConsumo) {
-      const maxDay = billComparison.maxIndex + 1
-      const datasets: unknown[] = []
-
-      if (previousCycle && previousSeries) {
-        datasets.push({
-          type: 'line',
-          label: previousCycle.id,
-          data: previousSeries.points.map((point) => ({ x: point.index + 1, y: point.m3 })),
-          borderColor: colors.previous,
-          backgroundColor: colors.previous,
-          borderWidth: 1.5,
-          pointRadius: 0,
-          tension: 0,
-          fill: false,
-        })
-        if (previousMilestones.length > 0) {
-          datasets.push(
-            milestoneDataset(previousCycle.id, previousMilestones, 'm3', colors.previous, colors),
-          )
-        }
-      }
-
-      datasets.push({
-        type: 'line',
-        label: `${analytics.cycle.id} real`,
-        data: currentSeries.points.map((point) => ({ x: point.index + 1, y: point.m3 })),
-        borderColor: colors.current,
-        backgroundColor: withAlpha(colors.current, 0.18),
-        borderWidth: 3,
-        pointRadius: 0,
-        tension: 0,
-        fill: 'origin' as const,
-      })
-
-      if (currentMilestones.length > 0) {
-        datasets.push(
-          milestoneDataset(analytics.cycle.id, currentMilestones, 'm3', colors.current, colors),
-        )
-      }
-
-      if (currentSeries.projected.length > 1) {
-        datasets.push({
-          type: 'line',
-          label: 'proyección',
-          data: currentSeries.projected.map((point) => ({ x: point.index + 1, y: point.m3 })),
-          borderColor: colors.projected,
-          backgroundColor: colors.projected,
-          borderWidth: 1.5,
-          borderDash: [5, 4],
-          pointRadius: 0,
-          tension: 0,
-          fill: false,
-        })
-      }
-
-      const options = baseOptions(colors)
-      charts.push(
-        new ChartCtor(curveCanvas, {
-          type: 'line',
-          data: { datasets },
-          options: {
-            ...options,
-            interaction: { mode: 'nearest' as const, intersect: false },
-            scales: {
-              x: {
-                type: 'linear',
-                min: 1,
-                max: maxDay,
-                ticks: {
-                  color: colors.muted,
-                  maxTicksLimit: 8,
-                  font: { size: 10 },
-                  callback: (value: number) => `día ${Math.round(value)}`,
-                },
-                afterBuildTicks: (axis: { ticks: Array<{ value: number }> }) => {
-                  axis.ticks = dayTicks
-                    .filter((value) => value <= maxDay)
-                    .map((value) => ({ value }))
-                },
-                grid: { display: false },
-                border: { display: false },
-              },
-              y: {
-                beginAtZero: true,
-                ticks: {
-                  color: colors.muted,
-                  maxTicksLimit: 6,
-                  padding: 4,
-                  font: { size: 10 },
-                  callback: (value: number) => formatNumber(value, 1),
-                },
-                grid: { color: colors.grid, drawTicks: false },
-                border: { display: false },
-              },
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                ...options.plugins.tooltip,
-                callbacks: {
-                  title: (items: Array<{ parsed: { x: number } }>) =>
-                    `Día ${Math.floor(items[0]?.parsed.x ?? 1)}`,
-                  label: (item: TooltipItem) => tooltipLabel(item, 'm3'),
-                },
-              },
-            },
-          },
-        }),
-      )
+      renderDailyConsumptionChart(curveCanvas, colors)
     }
 
     if (billCanvas && analytics.cycle.baseValue != null) {
@@ -447,7 +449,7 @@
     <div class="card-header">
       <div>
         <div class="card-title">Consumo</div>
-        <div class="card-subtitle">m³ acumulados por día del ciclo.</div>
+        <div class="card-subtitle">m³ por día del ciclo; día 1 = 20 de cada mes.</div>
       </div>
       {#if analytics.cycle.baseValue == null}
         <span class="badge badge-warn">sin base</span>
@@ -463,15 +465,9 @@
       <div class="chart-box"><canvas bind:this={curveCanvas}></canvas></div>
       <div class="chart-legend tiny">
         {#if previousCycle}
-          <span><i class="legend-prev"></i>{previousCycle.id}</span>
+          <span><i class="legend-bar legend-prev"></i>{previousCycle.id}</span>
         {/if}
-        <span><i class="legend-current"></i>{analytics.cycle.id} actual</span>
-        {#if analytics.projection && analytics.cycle.open}
-          <span><i class="legend-dash"></i>proyección</span>
-        {/if}
-        {#if hasMilestones}
-          <span><i class="legend-dot"></i>cambio de bloque</span>
-        {/if}
+        <span><i class="legend-bar legend-current"></i>{analytics.cycle.id} actual</span>
       </div>
     {/if}
   </div>

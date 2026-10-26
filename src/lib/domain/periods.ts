@@ -31,6 +31,24 @@ export type DailyCyclePoint = {
   kind: 'actual' | 'projected' | 'empty'
 }
 
+export type DailyComparisonPoint = {
+  /** Día del ciclo, 1-based. El día 1 es el 20 del mes. */
+  dayNumber: number
+  /** m³/día normalizado del ciclo anterior; null si ese día no tiene medición. */
+  previousM3: number | null
+  /** m³/día normalizado del ciclo actual; null si ese día no tiene medición. */
+  currentM3: number | null
+  /** ISO del día equivalente del ciclo anterior, para el tooltip. */
+  previousAt: string | null
+  /** ISO del día equivalente del ciclo actual, para el tooltip. */
+  currentAt: string | null
+}
+
+export type DailyComparison = {
+  days: DailyComparisonPoint[]
+  maxDay: number
+}
+
 export type TrafficBand = 'green' | 'yellow' | 'red'
 
 /** Semáforo por porcentaje del máximo: verde ≤75%, amarillo ≤90%, rojo >90%. */
@@ -102,6 +120,47 @@ export function buildDailyCycle(
       kind: 'empty' as const,
     }
   })
+}
+
+/**
+ * Comparación diaria de dos ciclos.
+ *
+ * Alinea el día N del ciclo actual con el día N del anterior y devuelve todos
+ * los días de la vista (32 por defecto). Los días sin medición quedan en null.
+ * No proyecta: solo usa mediciones reales.
+ */
+export function buildDailyComparison(
+  current: Cycle,
+  previous: Cycle | null,
+  days: DayPoint[],
+  displayDays = 32,
+): DailyComparison {
+  const currentDaily = buildDailyCycle(current, days, null)
+  const previousDaily = previous ? buildDailyCycle(previous, days, null) : []
+  const maxDay = Math.max(displayDays, currentDaily.length, previousDaily.length)
+  const previousByDay = new Map(previousDaily.map((point) => [point.dayNumber, point]))
+  const currentByDay = new Map(currentDaily.map((point) => [point.dayNumber, point]))
+
+  const points: DailyComparisonPoint[] = []
+  for (let dayNumber = 1; dayNumber <= maxDay; dayNumber += 1) {
+    const previousPoint = previousByDay.get(dayNumber)
+    const currentPoint = currentByDay.get(dayNumber)
+    points.push({
+      dayNumber,
+      previousM3:
+        previousPoint?.kind === 'actual' && previousPoint.m3PerDay != null
+          ? roundTo(previousPoint.m3PerDay, 3)
+          : null,
+      currentM3:
+        currentPoint?.kind === 'actual' && currentPoint.m3PerDay != null
+          ? roundTo(currentPoint.m3PerDay, 3)
+          : null,
+      previousAt: previousPoint?.at ?? null,
+      currentAt: currentPoint?.at ?? null,
+    })
+  }
+
+  return { days: points, maxDay }
 }
 
 /** Serie acumulada de un ciclo, un punto por día con medición. */

@@ -602,16 +602,12 @@ main {
 .cycle-numbers {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (max-width: 420px) {
+@media (min-width: 760px) {
   .cycle-numbers {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .cycle-numbers .metric:last-child {
-    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -977,20 +973,8 @@ td.mark {
   grid-column: 1 / -1;
 }
 
-@media (min-width: 760px) {
-  .charts-section {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 .chart-card {
   padding: 14px;
-}
-
-@media (min-width: 760px) {
-  .charts-section .chart-card .card-header {
-    min-height: 104px;
-  }
 }
 
 .chart-box {
@@ -1022,6 +1006,12 @@ td.mark {
 
 .chart-legend .legend-current {
   background: var(--accent);
+}
+
+.chart-legend .legend-bar {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
 }
 
 .chart-legend .legend-dot {
