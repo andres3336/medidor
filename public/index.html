@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="AYA water meter: readings, cycle usage, projection and raw CSV."
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Medidor AYA</title>
+    <script>
+      try {
+        var preference = localStorage.getItem('medidor.theme')
+        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        var resolved = preference === 'light' || preference === 'dark' ? preference : dark ? 'dark' : 'light'
+        document.documentElement.dataset.theme = resolved
+        document.documentElement.style.colorScheme = resolved
+      } catch (error) {
+        /* theme preference is optional */
+      }
+    </script>
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <div id="app"></div>
+    <noscript>Medidor AYA needs JavaScript to work.</noscript>
+    <script src="./assets/vendor/chart.umd.js"></script>
+    <script type="module" src="./assets/app.js"></script>
+  </body>
+</html>

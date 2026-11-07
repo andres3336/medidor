@@ -1,0 +1,14 @@
+{
+  "name": "medidor-aya",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "AYA water meter: readings, cycle usage, projection and raw CSV",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test test/*.test.js"
+  }
+}
