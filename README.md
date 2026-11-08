@@ -12,9 +12,12 @@ Sheet and runs entirely in the browser; it is a plain website, not a PWA.
 - Shows the **current 20 → 20 cycle**, two charts and the raw readings table on
   a single page. There is no add or edit button: new and corrected readings are
   entered in Google Sheets.
-- Renders four cycle metrics: exact usage with the projected close, last reading
-  with the previous cycle average, estimated bill and daily average vs the
-  previous cycle.
+- Renders three cycle metrics — exact usage with the projected close, last
+  reading with the previous cycle average, and estimated bill — above three
+  estimated-waste metrics, in one grid with a separator line.
+- Compares the cycle with a fixed **House 1 baseline** (3 people and the
+  semi-automatic washer) and shows the **estimated waste** in m³ and extra
+  colones from the House 2 leak (18 L/h).
 - Draws a **0–60 m³ block bar** with ticks every 5 m³ and green/yellow/red
   zones.
 - Draws **Usage** (m³ per cycle day, grouped by day against the previous cycle)
@@ -38,8 +41,9 @@ Sheet and runs entirely in the browser; it is a plain website, not a PWA.
 
 ## Screen
 
-1. **Current cycle** — base, exact and billable usage, estimated bill, daily
-   average, block bar and soft warnings (IVA threshold, missing reading).
+1. **Current cycle** — base, exact and billable usage, estimated bill, the
+   House 1 target / House 2 leak / estimated waste metrics (separated by a
+   line), block bar and soft warnings (IVA threshold, missing reading).
 2. **Charts** — Usage and Billing, full width, no date filter.
 3. **Readings** — raw table, newest first, read-only.
 4. **Settings** — read-only cycle and tariff details, sync status, Download CSV,
@@ -103,13 +107,38 @@ The 30 → 31 jump is ₡5,214.70. At display time 31 m³ shows as ₡48,090.
 - **Usage** — 32 day slots, day 1 = the 20th. Previous cycle in gray, current in
   blue, amber when the current day beats the same day of the previous cycle.
   Only real readings: days without a measurement stay empty and nothing is
-  projected.
+  projected. A dashed green line marks the House 1 target (`0.395 m³/day`).
 - **Billing** — estimated ₡ accumulated per day. Solid current line, gray
-  previous line, dashed projection, and one dot per new tariff block reached
-  (15, 30 and 60 billable m³).
+  previous line, dashed projection, one dot per new tariff block reached (15,
+  30 and 60 billable m³) and a dashed green House 1 target line.
 - **Projection** — average L/day from the last 7 days with data in the cycle,
   extrapolated to the cutoff. If there are no recent days, the cycle average is
   the fallback.
+
+## Estimated waste (House 1 vs. House 2)
+
+Three estimates keep the leak's cost visible without touching the meter:
+
+- **House 1 target** — `0.395 m³/day` (395 L/day): 3 people, a 5 L toilet,
+  showers, kitchen and the Mabe LMD1800B0 semi-automatic washer at about half
+  load, 3–4 washes a week. Over a 31-day cutoff: ≈ 12.2 m³, ≈ ₡13,676.
+- **House 2 leak** — `18 L/h` (`432 L/day`), measured on 2026-11-08: the meter
+  moved from `114.801` to `114.810` in 30 minutes. If it ran 24/7 for a 31-day
+  cutoff it would be ≈ 13.4 m³.
+- **Est. waste** — the projected close minus the House 1 target, in m³ and in
+  extra colones, plus the excess accumulated so far in the cycle.
+
+```
+baseline_cycle_m3 = 395 × cycle_days / 1000
+excess_so_far     = max(0, exact_usage − 395 × elapsed_days / 1000)
+projected_waste   = max(0, projected_m3 − baseline_cycle_m3)
+waste_colones     = max(0, projected_total − baseline_total)
+```
+
+Both baselines are fixed estimates, not readings: the app never parses notes to
+find a leak. They live in `public/assets/domain/constants.js` and are not
+editable in the UI. The same target appears as a dashed green line on both
+charts.
 
 ## Outliers
 
