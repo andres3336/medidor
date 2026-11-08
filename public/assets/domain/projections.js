@@ -2,7 +2,7 @@ import { billableConsumption, calcBill, metersToThreshold } from './billing.js'
 import { cycleDayProgress, lastReadingInCycle } from './cycles.js'
 import { hoursBetween } from './dates.js'
 import { mean } from './stats.js'
-import { PROJECTION_WINDOW_DAYS } from './constants.js'
+import { HOUSE1_BASELINE_LPD, HOUSE2_LEAK_LPD, PROJECTION_WINDOW_DAYS } from './constants.js'
 
 /**
  * A single projection: average L/day from the last days of the cycle,
@@ -49,6 +49,44 @@ export function buildProjection(context) {
     projectedBill,
     m3ToNextThreshold: metersToThreshold(currentBillableM3),
     overdueDays: progress.overdueDays,
+    waste: buildWasteEstimate({
+      currentExactM3,
+      elapsedDays: progress.elapsedDays,
+      totalDays: progress.totalDays,
+      projectedM3,
+      projectedBill,
+      tariffs,
+    }),
+  }
+}
+
+/**
+ * Estimated waste: the cycle with House 1 alone against the pace the meter is
+ * actually showing. The House 1 baseline and the House 2 leak are fixed
+ * estimates; the colón difference uses exact totals and is rounded only when
+ * displayed, like every other amount in the app.
+ */
+export function buildWasteEstimate(context) {
+  const { currentExactM3, elapsedDays, totalDays, projectedM3, projectedBill, tariffs } = context
+
+  const baselineDailyM3 = HOUSE1_BASELINE_LPD / 1000
+  const baselineCycleM3 = (HOUSE1_BASELINE_LPD * totalDays) / 1000
+  const baselineBillableM3 = Math.max(0, Math.floor(baselineCycleM3 + 1e-9))
+  const baselineBill = calcBill(baselineBillableM3, tariffs)
+  const leakDailyM3 = HOUSE2_LEAK_LPD / 1000
+  const leakCycleM3 = (HOUSE2_LEAK_LPD * totalDays) / 1000
+  const baselineSoFarM3 = (HOUSE1_BASELINE_LPD * elapsedDays) / 1000
+
+  return {
+    baselineDailyM3,
+    baselineCycleM3,
+    baselineBillableM3,
+    baselineBill,
+    leakDailyM3,
+    leakCycleM3,
+    excessSoFarM3: Math.max(0, currentExactM3 - baselineSoFarM3),
+    projectedWasteM3: Math.max(0, projectedM3 - baselineCycleM3),
+    projectedWasteColon: Math.max(0, projectedBill.total - baselineBill.total),
   }
 }
 
