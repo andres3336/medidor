@@ -4,6 +4,7 @@ import { deriveAnalytics } from './domain/analytics.js'
 import { formatDayMonth, formatDateTime, nowIso } from './domain/dates.js'
 import { formatLiters, formatM3, formatMoney, formatNumber } from './domain/format.js'
 import { ARESEP_TARIFFS_2026_10_23, combinedRate } from './domain/tariffs.js'
+import { HOUSE2_LEAK_LPH } from './domain/constants.js'
 import { buildChartModel, renderCharts } from './charts.js'
 
 /* ------------------------------------------------------------------ icons */
@@ -278,10 +279,6 @@ function cycleCardHtml(analytics) {
   const projectedPct = Math.min(100, (Math.max(0, Math.min(60, projectedM3)) / 60) * 100)
   const currentBlock = billableM3 > 30 ? 3 : billableM3 > 15 ? 2 : 1
   const toThirty = billableM3 <= 30 ? 30 - billableM3 : null
-  const averageDelta =
-    analytics.averageM3PerDay != null && analytics.previousCycleAverageM3PerDay != null
-      ? analytics.averageM3PerDay - analytics.previousCycleAverageM3PerDay
-      : null
   const ticks = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60]
   const progressValue = Math.max(0, Math.min(60, billableM3))
 
@@ -305,18 +302,6 @@ function cycleCardHtml(analytics) {
     ? ''
     : '<div class="tiny text-warn">MISSING today&rsquo;s reading</div>'
 
-  const averageSub =
-    analytics.previousCycleAverageM3PerDay == null
-      ? '<div class="tiny muted">No previous cycle to compare.</div>'
-      : `<div class="tiny muted">
-           Previous ${formatM3(analytics.previousCycleAverageM3PerDay, 2)}
-           ${
-             averageDelta == null
-               ? ''
-               : `· <span class="${averageDelta > 0 ? 'text-warn' : averageDelta < 0 ? 'text-ok' : 'muted'}">${averageDelta > 0 ? '+' : ''}${formatM3(averageDelta, 2)} m³/day</span>`
-           }
-         </div>`
-
   const ivaNote = analytics.currentBill.crossesIvaThreshold
     ? '<p class="tiny text-warn">You passed 30 m³: 13% IVA applies to the whole aqueduct.</p>'
     : toThirty != null && toThirty <= 3
@@ -328,6 +313,34 @@ function cycleCardHtml(analytics) {
     : analytics.gaps.hoursSinceLast != null && analytics.gaps.hoursSinceLast > 36
       ? `<p class="tiny text-warn">Last reading ${formatNumber(analytics.gaps.hoursSinceLast, 0)} h ago.</p>`
       : ''
+
+  const waste = projection?.waste ?? null
+  const wasteMetrics = waste
+    ? `
+      <div class="metric-separator" aria-hidden="true"></div>
+      <div class="metric">
+        <div class="metric-label">House 1 target</div>
+        <div class="metric-value numeric">≈ ${formatM3(waste.baselineCycleM3, 1)} m³</div>
+        <div class="tiny muted">
+          ${formatM3(waste.baselineDailyM3, 3)} m³/day · ≈ ${formatMoney(waste.baselineBill.displayTotal)}
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">House 2 leak</div>
+        <div class="metric-value numeric">${formatM3(waste.leakDailyM3, 3)} m³/day</div>
+        <div class="tiny muted">
+          ${formatNumber(HOUSE2_LEAK_LPH, 0)} L/h · ≈ ${formatM3(waste.leakCycleM3, 1)} m³ per cycle
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Est. waste</div>
+        <div class="metric-value numeric">≈ ${formatM3(waste.projectedWasteM3, 1)} m³</div>
+        <div class="tiny text-danger">
+          +${formatMoney(waste.projectedWasteColon)} extra · so far ${formatM3(waste.excessSoFarM3, 2)} m³
+        </div>
+      </div>
+    `
+    : ''
 
   return `
     <section class="card cycle-card" aria-labelledby="cycle-title">
@@ -357,13 +370,7 @@ function cycleCardHtml(analytics) {
           <div class="metric-value numeric">≈ ${formatMoney(analytics.currentBill.displayTotal)}</div>
           <div class="tiny muted">Estimate, not the receipt</div>
         </div>
-        <div class="metric">
-          <div class="metric-label">Average</div>
-          <div class="metric-value numeric">
-            ${analytics.averageM3PerDay == null ? '—' : `${formatM3(analytics.averageM3PerDay, 2)} m³/day`}
-          </div>
-          ${averageSub}
-        </div>
+        ${wasteMetrics}
       </div>
 
       <div class="blocks" role="group" aria-label="Billing blocks">
@@ -418,6 +425,9 @@ function chartsHtml(analytics, model) {
   if (model.hasHigher) {
     usageLegend.push('<span><i class="legend-bar legend-over"></i>above the previous cycle</span>')
   }
+  if (model.projection?.waste) {
+    usageLegend.push('<span><i class="legend-target"></i>House 1 target</span>')
+  }
 
   const billLegend = []
   if (model.billComparison.previous) {
@@ -426,6 +436,9 @@ function chartsHtml(analytics, model) {
   billLegend.push(`<span><i class="legend-current"></i>${escapeHtml(analytics.cycle.id)} current</span>`)
   if (analytics.projection && analytics.cycle.open) {
     billLegend.push('<span><i class="legend-dash"></i>projection</span>')
+  }
+  if (model.projection?.waste) {
+    billLegend.push('<span><i class="legend-target"></i>House 1 target</span>')
   }
   if (model.hasMilestones) {
     billLegend.push('<span><i class="legend-dot"></i>block change</span>')
