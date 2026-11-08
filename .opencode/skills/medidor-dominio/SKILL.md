@@ -138,8 +138,35 @@ remaining_days = (cycle_end - last_reading) / 24
 - Projected billable usage is calculated with
   `billableConsumption(projected_reading, base)`.
 - The projected bill uses the same block and IVA calculation.
-- It is the only “what-if”; there is no worst case, safety margin or editable
-  control.
+- It is the only “what-if” driven by the readings; there is no worst case,
+  safety margin or editable control. The fixed House 1 baseline below is a
+  comparison, not a selectable scenario.
+
+## Estimated waste (House 1 vs. House 2)
+
+Fixed estimates compared with the running cycle; nothing is parsed from notes
+and nothing is editable in the UI.
+
+- **House 1 baseline:** `HOUSE1_BASELINE_LPD = 395` L/day (3 people, 5 L toilet,
+  showers, kitchen and the Mabe LMD1800B0 semi-automatic washer at about half
+  load, 3–4 washes a week).
+- **House 2 leak:** `HOUSE2_LEAK_LPH = 18` L/h → `HOUSE2_LEAK_LPD = 432` L/day.
+  Measured on 2026-11-08: `114.801` → `114.810` in 30 minutes = 9 L.
+- A 31-day cycle targets ≈ 12.2 m³ (billable 12, ≈ ₡13,676) for House 1 alone.
+
+```
+baseline_cycle_m3 = 395 × cycle_days / 1000
+excess_so_far     = max(0, exact_usage − 395 × elapsed_days / 1000)
+projected_waste   = max(0, projected_m3 − baseline_cycle_m3)
+waste_colones     = max(0, projected_total − baseline_total)
+```
+
+- The card shows three extra metrics: House 1 target, House 2 leak and Est.
+  waste (m³ plus extra colones, with the excess accumulated so far).
+- The colón difference uses exact totals and is rounded only when displayed.
+- The charts draw it as a dashed green “House 1 target” line: a constant
+  `0.395 m³/day` in Usage and the target bill in Billing.
+- It is an estimate, not a receipt and not a promise of the leak rate.
 
 ## Block bar and average
 
@@ -150,13 +177,17 @@ remaining_days = (cycle_end - last_reading) / 24
   projection marker.
 - If usage exceeds 60, the bar stays at the top and the text still shows the real
   value.
-- The card shows four metrics: exact usage with the projected close, last reading
-  with the previous cycle daily average, estimated bill (`≈ ₡…`, an estimate, not
-  the receipt) and current daily average vs the previous one with the difference
-  (`averageM3PerDay - previousCycleAverageM3PerDay`).
+- The card shows three metrics: exact usage with the projected close, last
+  reading with the previous cycle daily average, and estimated bill (`≈ ₡…`, an
+  estimate, not the receipt). Below them, after a separator line, sit the three
+  estimated-waste metrics (see Estimated waste).
+- The metrics use a 3-column grid (2 columns on narrow phones); the separator
+  spans the full width.
 - Cycle daily average = `exact_usage / days_from_cutoff_to_now` in m³/day. It is
-  shown in the card AVERAGE metric; it is not used in the charts.
-- L/h and baseline flow are not used in the charts.
+  still derived and covered by the tests, but it is no longer displayed in the
+  card; it is not used in the charts.
+- L/h is not used in the charts; the only baseline drawn is the House 1 target
+  line (see Estimated waste).
 
 ## Charts
 
@@ -165,13 +196,15 @@ remaining_days = (cycle_end - last_reading) / 24
   1 = the 20th of the month; day 32 is empty because it is the next cutoff.
   Previous bar gray, current blue; if the current day beats the same day of the
   previous cycle, the bar turns amber. Real readings only: no projection, and
-  days without a reading stay `null` (empty bar). No block milestones.
+  days without a reading stay `null` (empty bar). No block milestones. A dashed
+  green line marks the House 1 target (`0.395 m³/day`).
 - `buildDailyComparison` aligns day N with day N, uses `buildDailyCycle` with the
   normalized daily series (m³/day) and returns 32 fixed days. It does not
   project.
 - **Billing:** estimated ₡ accumulated per cycle day. It does not measure usage:
   it measures the estimated rate with base, `floor`, ARESEP blocks, fixed charge
-  and IVA. It keeps the dotted projection.
+  and IVA. It keeps the dotted projection and adds a dashed green House 1
+  target line (fixed charge → target bill).
 - **Block milestones:** one dot per new tariff block reached in each period (15,
   30 and 60 billable m³). `findBlockMilestones` uses the real accumulated series,
   without projection: it uses the first point that crosses the threshold and
@@ -269,7 +302,7 @@ remaining_days = (cycle_end - last_reading) / 24
 - Implementation: `public/assets/domain/*.js` (anomalies, billing, constants,
   csv, cycles, dates, format, gaps, initialState, periods, projections, readings,
   stats, tariffs, analytics) and `public/assets/app.js` for sync/UI.
-- Tests: `test/*.test.js` (81 cases), with the historical photo of the old seed in
+- Tests: `test/*.test.js` (84 cases), with the historical photo of the old seed in
   `test/fixtures/mediciones.js`.
 - Initial state: `public/assets/domain/initialState.js`
   (`buildInitialState()` with `readings: []`).

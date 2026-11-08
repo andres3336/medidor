@@ -603,10 +603,17 @@ main {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (min-width: 760px) {
+@media (min-width: 560px) {
   .cycle-numbers {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+.cycle-numbers .metric-separator {
+  grid-column: 1 / -1;
+  height: 0;
+  margin: 2px 0;
+  border-top: 1px solid var(--border);
 }
 
 .blocks {
@@ -992,6 +999,12 @@ td.mark {
 .chart-legend .legend-dash {
   height: 0;
   border-top: 2px dashed var(--chart-prev);
+  background: transparent;
+}
+
+.chart-legend .legend-target {
+  height: 0;
+  border-top: 2px dashed var(--block-1);
   background: transparent;
 }
 

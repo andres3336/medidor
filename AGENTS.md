@@ -21,7 +21,7 @@ differs from these docs, fix the code or the docs; do not invent features.
 
 ```sh
 npm start            # local dev at http://127.0.0.1:5173
-npm test             # 81 domain tests
+npm test             # 84 domain tests
 ```
 
 Definition of done: `npm test` green, no new console errors, and the app

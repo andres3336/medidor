@@ -5,6 +5,7 @@ import {
   findBlockMilestones,
 } from './domain/periods.js'
 import { ARESEP_TARIFFS_2026_10_23 } from './domain/tariffs.js'
+import { calcBill } from './domain/billing.js'
 import { formatDayMonth } from './domain/dates.js'
 import { formatM3, formatMoney, formatNumber } from './domain/format.js'
 
@@ -202,6 +203,22 @@ function renderUsageChart(Chart, canvas, model, colors) {
     maxBarThickness: 24,
   })
 
+  if (model.projection?.waste) {
+    datasets.push({
+      type: 'line',
+      label: 'House 1 target',
+      houseTarget: true,
+      data: model.dailyComparison.days.map(() => model.projection.waste.baselineDailyM3),
+      borderColor: colors.bandGreen,
+      backgroundColor: colors.bandGreen,
+      borderWidth: 1.5,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      tension: 0,
+      fill: false,
+    })
+  }
+
   chartInstances.push(
     new Chart(canvas, {
       type: 'bar',
@@ -249,6 +266,9 @@ function renderUsageChart(Chart, canvas, model, colors) {
               },
               label: (item) => {
                 if (item.parsed.y == null) return ''
+                if (item.dataset.houseTarget) {
+                  return `House 1 target: ${formatM3(item.parsed.y, 3)} m³/day`
+                }
                 const point = model.dailyComparison.days[item.dataIndex]
                 const isCurrent = item.datasetIndex === currentDatasetIndex
                 const at = isCurrent ? point?.currentAt : point?.previousAt
@@ -352,6 +372,26 @@ function renderBillingChart(Chart, canvas, model, colors) {
       backgroundColor: colors.projected,
       borderWidth: 1.5,
       borderDash: [5, 4],
+      pointRadius: 0,
+      tension: 0,
+      fill: false,
+    })
+  }
+
+  if (model.projection?.waste) {
+    const baseline = model.projection.waste
+    datasets.push({
+      type: 'line',
+      label: 'House 1 target',
+      houseTarget: true,
+      data: [
+        { x: 1, y: calcBill(0, model.tariffs).displayTotal },
+        { x: model.billComparison.maxIndex + 1, y: baseline.baselineBill.displayTotal },
+      ],
+      borderColor: colors.bandGreen,
+      backgroundColor: colors.bandGreen,
+      borderWidth: 1.5,
+      borderDash: [4, 4],
       pointRadius: 0,
       tension: 0,
       fill: false,
